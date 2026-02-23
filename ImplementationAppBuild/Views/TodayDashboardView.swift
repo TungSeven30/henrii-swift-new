@@ -5,9 +5,13 @@ struct TodayDashboardView: View {
     let baby: Baby
     @Query(sort: \BabyEvent.timestamp, order: .reverse) private var allEvents: [BabyEvent]
 
+    private var babyEvents: [BabyEvent] {
+        allEvents.filter { $0.baby?.id == baby.id }
+    }
+
     private var todayEvents: [BabyEvent] {
         let start = Calendar.current.startOfDay(for: Date())
-        return allEvents.filter { $0.timestamp >= start }.reversed()
+        return babyEvents.filter { $0.timestamp >= start }.reversed()
     }
 
     private var feedCount: Int { todayEvents.filter { $0.category == .feeding }.count }

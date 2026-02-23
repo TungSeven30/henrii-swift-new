@@ -5,9 +5,13 @@ struct InsightsView: View {
     let baby: Baby
     @Query(sort: \BabyEvent.timestamp, order: .reverse) private var allEvents: [BabyEvent]
 
+    private var babyEvents: [BabyEvent] {
+        allEvents.filter { $0.baby?.id == baby.id }
+    }
+
     private var last7DaysEvents: [BabyEvent] {
         let start = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
-        return allEvents.filter { $0.timestamp >= start }
+        return babyEvents.filter { $0.timestamp >= start }
     }
 
     private var hasEnoughData: Bool { last7DaysEvents.count >= 5 }

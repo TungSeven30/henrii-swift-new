@@ -3,6 +3,7 @@ import SwiftUI
 struct StatusHeaderView: View {
     let baby: Baby
     let events: [BabyEvent]
+    @State private var showSettings: Bool = false
 
     var body: some View {
         VStack(spacing: HenriiSpacing.xs) {
@@ -13,7 +14,7 @@ struct StatusHeaderView: View {
 
                 Spacer()
 
-                Button { } label: {
+                Button { showSettings = true } label: {
                     Circle()
                         .fill(HenriiColors.accentPrimary.opacity(0.15))
                         .frame(width: 36, height: 36)
@@ -28,6 +29,9 @@ struct StatusHeaderView: View {
             .padding(.vertical, HenriiSpacing.sm)
         }
         .background(.ultraThinMaterial)
+        .sheet(isPresented: $showSettings) {
+            SettingsView(baby: baby)
+        }
     }
 
     private func statusPill(icon: String, time: String, color: Color) -> some View {

@@ -19,13 +19,15 @@ final class ConversationEntry {
     var timestamp: Date
     var eventID: UUID?
     var isRead: Bool
+    var babyID: UUID?
 
-    init(type: EntryType, text: String, timestamp: Date = Date(), eventID: UUID? = nil) {
+    init(type: EntryType, text: String, timestamp: Date = Date(), eventID: UUID? = nil, babyID: UUID? = nil) {
         self.id = UUID()
         self.type = type
         self.text = text
         self.timestamp = timestamp
         self.eventID = eventID
         self.isRead = false
+        self.babyID = babyID
     }
 }

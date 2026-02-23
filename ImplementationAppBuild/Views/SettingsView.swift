@@ -1,11 +1,13 @@
 import SwiftUI
+import SwiftData
 
 struct SettingsView: View {
     let baby: Baby
     @Environment(\.dismiss) private var dismiss
-    @State private var insightFrequency: Double = 0.5
-    @State private var use24Hour: Bool = false
-    @State private var useMetric: Bool = false
+    @State private var settings = SettingsManager.shared
+    @Query private var babies: [Baby]
+    @State private var showAddBaby: Bool = false
+    @State private var showResetConfirm: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -33,11 +35,29 @@ struct SettingsView: View {
                     Text("Baby Profile")
                 }
 
+                if babies.count > 1 {
+                    Section {
+                        ForEach(babies) { b in
+                            HStack {
+                                Text(b.name)
+                                    .font(.henriiBody)
+                                Spacer()
+                                if b.id == baby.id {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(HenriiColors.accentPrimary)
+                                }
+                            }
+                        }
+                    } header: {
+                        Text("All Babies")
+                    }
+                }
+
                 Section {
                     VStack(alignment: .leading, spacing: HenriiSpacing.sm) {
                         Text("Insight Frequency")
                             .font(.henriiCallout)
-                        Slider(value: $insightFrequency, in: 0...1)
+                        Slider(value: $settings.insightFrequency, in: 0...1)
                             .tint(HenriiColors.accentPrimary)
                         HStack {
                             Text("Minimal")
@@ -54,9 +74,9 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Toggle("24-hour time", isOn: $use24Hour)
+                    Toggle("24-hour time", isOn: $settings.use24Hour)
                         .tint(HenriiColors.accentPrimary)
-                    Toggle("Metric units (kg, cm, ml)", isOn: $useMetric)
+                    Toggle("Metric units (kg, cm, ml)", isOn: $settings.useMetric)
                         .tint(HenriiColors.accentPrimary)
                 } header: {
                     Text("Units & Format")

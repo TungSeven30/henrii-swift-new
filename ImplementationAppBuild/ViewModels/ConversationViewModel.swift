@@ -7,17 +7,22 @@ final class ConversationViewModel {
     var composerText: String = ""
     var showUndoToast: Bool = false
     var undoEvent: BabyEvent?
+    var undoEntry: ConversationEntry?
     var recentInsight: String?
+
+    private let settings = SettingsManager.shared
 
     func processInput(_ input: String, baby: Baby, context: ModelContext) {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        let userEntry = ConversationEntry(type: .userMessage, text: trimmed)
+        insertDaySeparatorIfNeeded(baby: baby, context: context)
+
+        let userEntry = ConversationEntry(type: .userMessage, text: trimmed, babyID: baby.id)
         context.insert(userEntry)
 
         guard let parsed = InputParser.parse(trimmed) else {
-            let noteEntry = ConversationEntry(type: .system, text: "I didn't quite catch that. Try something like \"fed 4oz\" or \"diaper change\".")
+            let noteEntry = ConversationEntry(type: .system, text: "I didn't quite catch that. Try something like \"fed 4oz\" or \"diaper change\".", babyID: baby.id)
             context.insert(noteEntry)
             return
         }
@@ -34,19 +39,24 @@ final class ConversationViewModel {
         let confirmation = ConversationEntry(
             type: .confirmation,
             text: event.summaryText,
-            eventID: event.id
+            eventID: event.id,
+            babyID: baby.id
         )
         context.insert(confirmation)
 
         undoEvent = event
+        undoEntry = confirmation
         showUndoToast = true
 
         generateInsightIfNeeded(baby: baby, event: event, context: context)
+        generateNudgeIfNeeded(baby: baby, event: event, context: context)
 
         composerText = ""
     }
 
     func quickLog(category: EventCategory, baby: Baby, context: ModelContext, feedingType: FeedingType? = nil, diaperType: DiaperType? = nil) {
+        insertDaySeparatorIfNeeded(baby: baby, context: context)
+
         let event = BabyEvent(category: category)
         event.baby = baby
         event.feedingType = feedingType
@@ -56,18 +66,28 @@ final class ConversationViewModel {
         let confirmation = ConversationEntry(
             type: .confirmation,
             text: event.summaryText,
-            eventID: event.id
+            eventID: event.id,
+            babyID: baby.id
         )
         context.insert(confirmation)
 
         undoEvent = event
+        undoEntry = confirmation
         showUndoToast = true
+
+        generateInsightIfNeeded(baby: baby, event: event, context: context)
+        generateNudgeIfNeeded(baby: baby, event: event, context: context)
     }
 
     func undoLastEvent(context: ModelContext) {
-        guard let event = undoEvent else { return }
-        context.delete(event)
+        if let entry = undoEntry {
+            context.delete(entry)
+        }
+        if let event = undoEvent {
+            context.delete(event)
+        }
         undoEvent = nil
+        undoEntry = nil
         showUndoToast = false
     }
 
@@ -89,11 +109,21 @@ final class ConversationViewModel {
             let confirmation = ConversationEntry(
                 type: .confirmation,
                 text: sleepEvent.summaryText,
-                eventID: sleepEvent.id
+                eventID: sleepEvent.id,
+                babyID: baby.id
             )
             context.insert(confirmation)
+
+            if duration >= 120 {
+                let celebration = ConversationEntry(
+                    type: .celebration,
+                    text: "\(baby.name) slept for over 2 hours! Great stretch.",
+                    babyID: baby.id
+                )
+                context.insert(celebration)
+            }
         } else {
-            let entry = ConversationEntry(type: .system, text: "No active sleep session found. Starting a new one.")
+            let entry = ConversationEntry(type: .system, text: "No active sleep session found. Starting a new one.", babyID: baby.id)
             context.insert(entry)
             let event = BabyEvent(category: .sleep)
             event.baby = baby
@@ -116,7 +146,39 @@ final class ConversationViewModel {
         return event
     }
 
+    private func insertDaySeparatorIfNeeded(baby: Baby, context: ModelContext) {
+        let todayStart = Calendar.current.startOfDay(for: Date())
+        let descriptor = FetchDescriptor<ConversationEntry>(
+            predicate: #Predicate<ConversationEntry> { $0.timestamp >= todayStart },
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+
+        let todayEntries = (try? context.fetch(descriptor)) ?? []
+        let hasSeparator = todayEntries.contains { $0.type == .daySeparator }
+        guard !hasSeparator else { return }
+
+        let lastEntryDesc = FetchDescriptor<ConversationEntry>(
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        let lastEntries = (try? context.fetch(lastEntryDesc)) ?? []
+        guard let lastEntry = lastEntries.first else { return }
+
+        let lastDay = Calendar.current.startOfDay(for: lastEntry.timestamp)
+        if lastDay < todayStart {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            let sep = ConversationEntry(
+                type: .daySeparator,
+                text: formatter.string(from: Date()),
+                babyID: baby.id
+            )
+            context.insert(sep)
+        }
+    }
+
     private func generateInsightIfNeeded(baby: Baby, event: BabyEvent, context: ModelContext) {
+        guard settings.insightFrequency > 0.1 else { return }
+
         let todayStart = Calendar.current.startOfDay(for: Date())
         let descriptor = FetchDescriptor<BabyEvent>(
             predicate: #Predicate { $0.timestamp >= todayStart }
@@ -125,15 +187,71 @@ final class ConversationViewModel {
 
         let feedCount = todayEvents.filter { $0.category == .feeding }.count
         let diaperCount = todayEvents.filter { $0.category == .diaper }.count
+        let sleepMinutes = todayEvents.filter { $0.category == .sleep }.compactMap(\.durationMinutes).reduce(0, +)
 
         if feedCount == 8 && event.category == .feeding {
-            let insight = ConversationEntry(type: .insight, text: "That's 8 feeds today \u{2014} right on track for this age.")
+            let insight = ConversationEntry(type: .insight, text: "That's 8 feeds today — right on track for this age.", babyID: baby.id)
+            context.insert(insight)
+        } else if feedCount == 4 && event.category == .feeding && settings.insightFrequency > 0.3 {
+            let insight = ConversationEntry(type: .insight, text: "Halfway there — 4 feeds so far today.", babyID: baby.id)
             context.insert(insight)
         }
 
         if diaperCount == 6 && event.category == .diaper {
-            let insight = ConversationEntry(type: .insight, text: "6 diapers today. Good hydration signs.")
+            let insight = ConversationEntry(type: .insight, text: "6 diapers today. Good hydration signs.", babyID: baby.id)
             context.insert(insight)
+        }
+
+        if sleepMinutes >= 600 && event.category == .sleep && event.durationMinutes != nil {
+            let hours = Int(sleepMinutes) / 60
+            let insight = ConversationEntry(type: .insight, text: "\(baby.name) has gotten about \(hours) hours of sleep today. That's solid.", babyID: baby.id)
+            context.insert(insight)
+        }
+
+        if event.category == .feeding, let oz = event.amountOz, oz >= 6 {
+            let insight = ConversationEntry(type: .insight, text: "That's a big feed! \(baby.name) was hungry.", babyID: baby.id)
+            context.insert(insight)
+        }
+
+        if event.category == .health, let temp = event.temperatureF, temp >= 100.4 {
+            let alert = ConversationEntry(type: .insight, text: "⚠️ Temperature is \(String(format: "%.1f", temp))°F — that's above normal. Keep monitoring and contact your pediatrician if it persists.", babyID: baby.id)
+            context.insert(alert)
+        }
+    }
+
+    private func generateNudgeIfNeeded(baby: Baby, event: BabyEvent, context: ModelContext) {
+        guard settings.insightFrequency > 0.3 else { return }
+
+        let todayStart = Calendar.current.startOfDay(for: Date())
+        let descriptor = FetchDescriptor<BabyEvent>(
+            predicate: #Predicate { $0.timestamp >= todayStart }
+        )
+        guard let todayEvents = try? context.fetch(descriptor) else { return }
+
+        if event.category == .feeding {
+            let lastSleep = todayEvents.filter { $0.category == .sleep }.max(by: { $0.timestamp < $1.timestamp })
+            if let lastSleep, let endTime = lastSleep.endTime {
+                let hoursSinceWake = Date().timeIntervalSince(endTime) / 3600
+                if hoursSinceWake > 2 && baby.ageInMonths < 6 {
+                    let nudge = ConversationEntry(type: .nudge, text: "It's been about \(Int(hoursSinceWake)) hours since \(baby.name) woke up. A nap might be coming soon.", babyID: baby.id)
+                    context.insert(nudge)
+                }
+            }
+        }
+
+        if event.category == .diaper {
+            let feedsSinceDiaper = todayEvents
+                .filter { $0.category == .feeding && $0.timestamp > event.timestamp }
+            if feedsSinceDiaper.isEmpty {
+                let lastFeed = todayEvents.filter { $0.category == .feeding }.max(by: { $0.timestamp < $1.timestamp })
+                if let lastFeed {
+                    let hoursSinceFeed = Date().timeIntervalSince(lastFeed.timestamp) / 3600
+                    if hoursSinceFeed > 3 {
+                        let nudge = ConversationEntry(type: .nudge, text: "It's been \(Int(hoursSinceFeed)) hours since the last feed. \(baby.name) might be getting hungry.", babyID: baby.id)
+                        context.insert(nudge)
+                    }
+                }
+            }
         }
     }
 }

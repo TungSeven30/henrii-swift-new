@@ -6,8 +6,16 @@ struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var conversationVM = ConversationViewModel()
     @State private var timerVM = TimerViewModel()
-    @Query(sort: \ConversationEntry.timestamp) private var entries: [ConversationEntry]
+    @Query(sort: \ConversationEntry.timestamp) private var allEntries: [ConversationEntry]
     @Query(sort: \BabyEvent.timestamp, order: .reverse) private var allEvents: [BabyEvent]
+
+    private var entries: [ConversationEntry] {
+        allEntries.filter { $0.babyID == nil || $0.babyID == baby.id }
+    }
+
+    private var babyEvents: [BabyEvent] {
+        allEvents.filter { $0.baby?.id == baby.id }
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -15,7 +23,7 @@ struct HomeView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                StatusHeaderView(baby: baby, events: allEvents)
+                StatusHeaderView(baby: baby, events: babyEvents)
 
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -25,10 +33,12 @@ struct HomeView: View {
                                     entry: entry,
                                     event: eventFor(entry),
                                     onDelete: {
-                                        if let event = eventFor(entry) {
-                                            conversationVM.deleteEvent(event, context: modelContext)
+                                        withAnimation {
+                                            if let event = eventFor(entry) {
+                                                conversationVM.deleteEvent(event, context: modelContext)
+                                            }
+                                            modelContext.delete(entry)
                                         }
-                                        modelContext.delete(entry)
                                     }
                                 )
                                 .id(entry.id)
@@ -62,7 +72,7 @@ struct HomeView: View {
                     .padding(.horizontal, HenriiSpacing.margin)
                 }
 
-                ContextChipsView(baby: baby, events: allEvents) { action in
+                ContextChipsView(baby: baby, events: babyEvents) { action in
                     handleChipAction(action)
                 }
                 .padding(.horizontal, HenriiSpacing.margin)
@@ -106,6 +116,7 @@ struct HomeView: View {
                 }
             }
         }
+        .sensoryFeedback(.success, trigger: conversationVM.showUndoToast)
         .animation(.spring(duration: 0.35, bounce: 0.2), value: timerVM.isRunning)
     }
 
@@ -143,7 +154,8 @@ struct HomeView: View {
         let confirmation = ConversationEntry(
             type: .confirmation,
             text: event.summaryText,
-            eventID: event.id
+            eventID: event.id,
+            babyID: baby.id
         )
         modelContext.insert(confirmation)
     }

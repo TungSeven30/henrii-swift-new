@@ -7,9 +7,17 @@ struct BabyProfileView: View {
     @Query(sort: \BabyEvent.timestamp, order: .reverse) private var allEvents: [BabyEvent]
 
     @State private var showSettings: Bool = false
+    @State private var showAddBaby: Bool = false
+    @State private var showReport: Bool = false
+    @State private var showExportSheet: Bool = false
+    @State private var exportCSV: String = ""
+
+    private var babyEvents: [BabyEvent] {
+        allEvents.filter { $0.baby?.id == baby.id }
+    }
 
     private var growthEvents: [BabyEvent] {
-        allEvents.filter { $0.category == .growth }
+        babyEvents.filter { $0.category == .growth }
     }
 
     var body: some View {
@@ -29,6 +37,15 @@ struct BabyProfileView: View {
         .navigationBarTitleDisplayMode(.large)
         .sheet(isPresented: $showSettings) {
             SettingsView(baby: baby)
+        }
+        .sheet(isPresented: $showAddBaby) {
+            AddBabyView { _ in }
+        }
+        .sheet(isPresented: $showReport) {
+            DoctorReportView(baby: baby, events: babyEvents)
+        }
+        .sheet(isPresented: $showExportSheet) {
+            ExportShareView(csv: exportCSV, babyName: baby.name)
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -74,7 +91,7 @@ struct BabyProfileView: View {
                 .foregroundStyle(HenriiColors.textPrimary)
 
             let todayStart = Calendar.current.startOfDay(for: Date())
-            let todayEvents = allEvents.filter { $0.timestamp >= todayStart }
+            let todayEvents = babyEvents.filter { $0.timestamp >= todayStart }
 
             HStack(spacing: HenriiSpacing.md) {
                 statCard(
@@ -100,7 +117,7 @@ struct BabyProfileView: View {
                     color: HenriiColors.dataSleep
                 )
                 statCard(
-                    value: "\(allEvents.count)",
+                    value: "\(babyEvents.count)",
                     label: "Total entries",
                     icon: "chart.bar.fill",
                     color: HenriiColors.accentPrimary
@@ -172,40 +189,59 @@ struct BabyProfileView: View {
                 .font(.henriiHeadline)
                 .foregroundStyle(HenriiColors.textPrimary)
 
-            Button { } label: {
-                HStack(spacing: HenriiSpacing.md) {
-                    Image(systemName: "doc.text.fill")
-                        .foregroundStyle(HenriiColors.accentPrimary)
-                    Text("Generate Doctor's Report")
-                        .font(.henriiCallout)
-                        .foregroundStyle(HenriiColors.textPrimary)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(HenriiColors.textTertiary)
-                }
-                .padding(HenriiSpacing.lg)
-                .background(HenriiColors.canvasElevated)
-                .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+            Button { showReport = true } label: {
+                actionRow(icon: "doc.text.fill", title: "Generate Doctor's Report")
             }
 
-            Button { } label: {
-                HStack(spacing: HenriiSpacing.md) {
-                    Image(systemName: "square.and.arrow.up")
-                        .foregroundStyle(HenriiColors.accentPrimary)
-                    Text("Export Data")
-                        .font(.henriiCallout)
-                        .foregroundStyle(HenriiColors.textPrimary)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(HenriiColors.textTertiary)
-                }
-                .padding(HenriiSpacing.lg)
-                .background(HenriiColors.canvasElevated)
-                .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+            Button { generateAndShowExport() } label: {
+                actionRow(icon: "square.and.arrow.up", title: "Export Data")
+            }
+
+            Button { showAddBaby = true } label: {
+                actionRow(icon: "plus.circle.fill", title: "Add Another Baby")
             }
         }
+    }
+
+    private func actionRow(icon: String, title: String) -> some View {
+        HStack(spacing: HenriiSpacing.md) {
+            Image(systemName: icon)
+                .foregroundStyle(HenriiColors.accentPrimary)
+            Text(title)
+                .font(.henriiCallout)
+                .foregroundStyle(HenriiColors.textPrimary)
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundStyle(HenriiColors.textTertiary)
+        }
+        .padding(HenriiSpacing.lg)
+        .background(HenriiColors.canvasElevated)
+        .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+    }
+
+    private func generateAndShowExport() {
+        exportCSV = generateCSV()
+        showExportSheet = true
+    }
+
+    private func generateCSV() -> String {
+        var lines: [String] = ["Date,Time,Category,Details,Duration (min),Amount (oz)"]
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "HH:mm"
+
+        for event in babyEvents.reversed() {
+            let date = formatter.string(from: event.timestamp)
+            let time = timeFormatter.string(from: event.timestamp)
+            let cat = event.category.rawValue
+            let details = event.summaryText.replacingOccurrences(of: ",", with: ";")
+            let dur = event.durationMinutes.map { String(format: "%.1f", $0) } ?? ""
+            let amt = event.amountOz.map { String(format: "%.1f", $0) } ?? ""
+            lines.append("\(date),\(time),\(cat),\(details),\(dur),\(amt)")
+        }
+        return lines.joined(separator: "\n")
     }
 
     private func formatDuration(_ minutes: Double) -> String {
