@@ -54,13 +54,14 @@ final class ConversationViewModel {
         composerText = ""
     }
 
-    func quickLog(category: EventCategory, baby: Baby, context: ModelContext, feedingType: FeedingType? = nil, diaperType: DiaperType? = nil) {
+    func quickLog(category: EventCategory, baby: Baby, context: ModelContext, feedingType: FeedingType? = nil, diaperType: DiaperType? = nil, amountOz: Double? = nil) {
         insertDaySeparatorIfNeeded(baby: baby, context: context)
 
         let event = BabyEvent(category: category)
         event.baby = baby
         event.feedingType = feedingType
         event.diaperType = diaperType
+        event.amountOz = amountOz
         context.insert(event)
 
         let confirmation = ConversationEntry(

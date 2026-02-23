@@ -113,7 +113,7 @@ struct ConversationBubbleView: View {
 
     private var celebrationCard: some View {
         HStack(spacing: HenriiSpacing.md) {
-            Image(systemName: "party.popper.fill")
+            Image(systemName: "party.popper")
                 .font(.title2)
                 .foregroundStyle(HenriiColors.semanticCelebration)
 

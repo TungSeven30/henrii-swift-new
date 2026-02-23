@@ -131,13 +131,13 @@ struct HomeView: View {
             timerVM.startTimer(category: .feeding)
         case .startSleep:
             timerVM.startTimer(category: .sleep)
-        case .logDiaper:
+        case .logDiaper(let type):
             withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
-                conversationVM.quickLog(category: .diaper, baby: baby, context: modelContext, diaperType: .both)
+                conversationVM.quickLog(category: .diaper, baby: baby, context: modelContext, diaperType: type)
             }
-        case .logBottle:
+        case .logBottle(let oz):
             withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
-                conversationVM.quickLog(category: .feeding, baby: baby, context: modelContext, feedingType: .bottle)
+                conversationVM.quickLog(category: .feeding, baby: baby, context: modelContext, feedingType: .bottle, amountOz: oz)
             }
         }
     }
