@@ -85,12 +85,7 @@ struct ContextChipsView: View {
 
         var chips: [ChipData] = []
 
-        let lastFeed = events.first { $0.category == .feeding }
-        let feedInterval = lastFeed.map { Date().timeIntervalSince($0.timestamp) / 3600 }
-
-        if feedInterval == nil || (feedInterval ?? 0) > 2 {
-            chips.append(ChipData(emoji: "\u{1F37C}", label: "Start Feed", action: .startFeed))
-        }
+        chips.append(ChipData(emoji: "\u{1F37C}", label: "Feed", action: .startFeed))
 
         if isNightTime || events.first(where: { $0.category == .sleep })?.endTime != nil {
             chips.append(ChipData(emoji: "\u{1F4A4}", label: "Sleep", action: .startSleep))
