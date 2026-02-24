@@ -2,15 +2,21 @@ import SwiftUI
 
 struct StatusHeaderView: View {
     let baby: Baby
+    var babies: [Baby] = []
     let events: [BabyEvent]
     let onTapStatus: () -> Void
     let onTapInsights: () -> Void
     let onTapAvatar: () -> Void
     var onTapSearch: (() -> Void)?
+    var onSwitchBaby: ((Baby) -> Void)?
 
     var body: some View {
         VStack(spacing: HenriiSpacing.xs) {
-            HStack(spacing: HenriiSpacing.lg) {
+            HStack(spacing: HenriiSpacing.sm) {
+                if babies.count > 1 {
+                    babySwitcherMenu
+                }
+
                 Button { onTapStatus() } label: {
                     HStack(spacing: HenriiSpacing.lg) {
                         statusPill(icon: "drop.fill", time: timeSince(.feeding), color: HenriiColors.dataFeeding)
@@ -56,6 +62,40 @@ struct StatusHeaderView: View {
             .padding(.vertical, HenriiSpacing.sm)
         }
         .background(.ultraThinMaterial)
+    }
+
+    private var babySwitcherMenu: some View {
+        Menu {
+            ForEach(babies) { b in
+                Button {
+                    onSwitchBaby?(b)
+                } label: {
+                    Label {
+                        Text(b.name)
+                    } icon: {
+                        if b.id == baby.id {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: HenriiSpacing.xs) {
+                Circle()
+                    .fill(HenriiColors.accentPrimary)
+                    .frame(width: 28, height: 28)
+                    .overlay {
+                        Text(baby.name.prefix(1))
+                            .font(.system(.caption, design: .rounded, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(HenriiColors.textTertiary)
+            }
+            .frame(height: 44)
+        }
     }
 
     private func statusPill(icon: String, time: String, color: Color) -> some View {

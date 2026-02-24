@@ -3,7 +3,10 @@ import SwiftData
 
 struct TodayDashboardView: View {
     let baby: Baby
+    var onPinchBack: (() -> Void)?
     @Query(sort: \BabyEvent.timestamp, order: .reverse) private var allEvents: [BabyEvent]
+    @GestureState private var pinchScale: CGFloat = 1.0
+    @Environment(\.henriiReduceMotion) private var reduceMotion
 
     private var babyEvents: [BabyEvent] {
         allEvents.filter { $0.baby?.id == baby.id }
@@ -33,6 +36,21 @@ struct TodayDashboardView: View {
         .background(HenriiColors.canvasPrimary)
         .navigationTitle("Today")
         .navigationBarTitleDisplayMode(.large)
+        .scaleEffect(pinchScale < 1.0 ? max(pinchScale, 0.85) : 1.0)
+        .opacity(pinchScale < 1.0 ? max(pinchScale, 0.5) : 1.0)
+        .gesture(pinchBackGesture)
+    }
+
+    private var pinchBackGesture: some Gesture {
+        MagnifyGesture()
+            .updating($pinchScale) { value, state, _ in
+                state = value.magnification
+            }
+            .onEnded { value in
+                if value.magnification < 0.85 {
+                    onPinchBack?()
+                }
+            }
     }
 
     private var summaryRings: some View {

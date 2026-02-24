@@ -17,7 +17,7 @@ struct ContentView: View {
     var body: some View {
         Group {
             if appVM.hasCompletedOnboarding, let baby = currentBaby {
-                MainAppView(baby: baby, appVM: appVM)
+                MainAppView(baby: baby, babies: babies, appVM: appVM)
             } else {
                 OnboardingView { babyID in
                     appVM.completeOnboarding(babyID: babyID)
@@ -31,6 +31,7 @@ struct ContentView: View {
 
 struct MainAppView: View {
     let baby: Baby
+    let babies: [Baby]
     @Bindable var appVM: AppViewModel
     @State private var showToday: Bool = false
     @State private var showInsights: Bool = false
@@ -40,12 +41,16 @@ struct MainAppView: View {
         NavigationStack {
             HomeView(
                 baby: baby,
+                babies: babies,
                 onShowToday: { showToday = true },
                 onShowInsights: { showInsights = true },
-                onShowProfile: { showProfile = true }
+                onShowProfile: { showProfile = true },
+                onSwitchBaby: { newBaby in
+                    appVM.currentBabyID = newBaby.id.uuidString
+                }
             )
             .navigationDestination(isPresented: $showToday) {
-                TodayDashboardView(baby: baby)
+                TodayDashboardView(baby: baby, onPinchBack: { showToday = false })
             }
             .navigationDestination(isPresented: $showInsights) {
                 InsightsView(baby: baby)

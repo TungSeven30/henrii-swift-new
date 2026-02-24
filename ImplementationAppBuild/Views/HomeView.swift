@@ -3,9 +3,11 @@ import SwiftData
 
 struct HomeView: View {
     let baby: Baby
+    let babies: [Baby]
     let onShowToday: () -> Void
     let onShowInsights: () -> Void
     let onShowProfile: () -> Void
+    let onSwitchBaby: (Baby) -> Void
     @Environment(\.modelContext) private var modelContext
     @Environment(\.henriiReduceMotion) private var reduceMotion
     @State private var conversationVM = ConversationViewModel()
@@ -14,6 +16,9 @@ struct HomeView: View {
     @State private var showGrowthSheet: Bool = false
     @State private var showCustomBottleAlert: Bool = false
     @State private var customBottleText: String = ""
+    @State private var selectedBabyIDs: Set<UUID> = []
+    @GestureState private var pinchScale: CGFloat = 1.0
+    @State private var searchDragOffset: CGFloat = 0
     @Query(sort: \ConversationEntry.timestamp, order: .reverse) private var allEntries: [ConversationEntry]
     @Query(sort: \BabyEvent.timestamp, order: .reverse) private var allEvents: [BabyEvent]
 
@@ -25,6 +30,10 @@ struct HomeView: View {
         allEvents.filter { $0.baby?.id == baby.id }
     }
 
+    private var hasMultipleBabies: Bool {
+        babies.count > 1
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             HenriiColors.canvasPrimary
@@ -33,11 +42,13 @@ struct HomeView: View {
             VStack(spacing: 0) {
                 StatusHeaderView(
                     baby: baby,
+                    babies: babies,
                     events: babyEvents,
                     onTapStatus: onShowToday,
                     onTapInsights: onShowInsights,
                     onTapAvatar: onShowProfile,
-                    onTapSearch: { showSearch = true }
+                    onTapSearch: { showSearch = true },
+                    onSwitchBaby: onSwitchBaby
                 )
 
                 ScrollViewReader { proxy in
@@ -77,9 +88,14 @@ struct HomeView: View {
                     }
                     .onAppear {
                         scrollToBottom(proxy)
+                        if selectedBabyIDs.isEmpty {
+                            selectedBabyIDs = [baby.id]
+                        }
                     }
                 }
             }
+            .scaleEffect(pinchScale > 1.0 ? min(pinchScale, 1.15) : 1.0)
+            .opacity(pinchScale > 1.0 ? max(1.0 - (pinchScale - 1.0) * CGFloat(3), 0.5) : 1.0)
 
             VStack(spacing: 0) {
                 if timerVM.isRunning {
@@ -88,6 +104,14 @@ struct HomeView: View {
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .padding(.horizontal, HenriiSpacing.margin)
+                }
+
+                if hasMultipleBabies {
+                    BabyToggleView(
+                        babies: babies,
+                        selectedBabyIDs: $selectedBabyIDs,
+                        onSwitch: onSwitchBaby
+                    )
                 }
 
                 ContextChipsView(baby: baby, events: babyEvents) { action in
@@ -99,18 +123,7 @@ struct HomeView: View {
                     timerRunning: timerVM.isRunning
                 ) { text in
                     withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
-                        let parsed = InputParser.parse(text)
-                        if let parsed, parsed.isSleepEnd, timerVM.isRunning, timerVM.timerCategory == .sleep {
-                            let _ = timerVM.stopTimer()
-                            conversationVM.processInput(text, baby: baby, context: modelContext)
-                        } else if let parsed, parsed.isSleepStart {
-                            conversationVM.processInput(text, baby: baby, context: modelContext)
-                            if !timerVM.isRunning {
-                                timerVM.startTimer(category: .sleep)
-                            }
-                        } else {
-                            conversationVM.processInput(text, baby: baby, context: modelContext)
-                        }
+                        handleComposerInput(text)
                     }
                 }
             }
@@ -147,14 +160,8 @@ struct HomeView: View {
         .sensoryFeedback(.success, trigger: conversationVM.showUndoToast)
         .animation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.35, bounce: 0.2), value: timerVM.isRunning)
         .toolbar(.hidden, for: .navigationBar)
-        .gesture(
-            DragGesture(minimumDistance: 60)
-                .onEnded { value in
-                    if value.translation.width < -60 && abs(value.translation.height) < 80 {
-                        onShowInsights()
-                    }
-                }
-        )
+        .gesture(pinchGesture)
+        .simultaneousGesture(swipeLeftGesture)
         .sheet(isPresented: $showSearch) {
             SearchView(baby: baby, events: babyEvents)
         }
@@ -175,6 +182,30 @@ struct HomeView: View {
         } message: {
             Text("Enter the amount in ounces")
         }
+    }
+
+    private var pinchGesture: some Gesture {
+        MagnifyGesture()
+            .updating($pinchScale) { value, state, _ in
+                state = value.magnification
+            }
+            .onEnded { value in
+                if value.magnification > 1.15 {
+                    onShowToday()
+                }
+            }
+    }
+
+    private var swipeLeftGesture: some Gesture {
+        DragGesture(minimumDistance: 60)
+            .onEnded { value in
+                if value.translation.width < -60 && abs(value.translation.height) < 80 {
+                    onShowInsights()
+                }
+                if value.translation.height > 80 && abs(value.translation.width) < 60 {
+                    showSearch = true
+                }
+            }
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
@@ -216,6 +247,43 @@ struct HomeView: View {
         return allEvents.first { $0.id == eventID }
     }
 
+    private func handleComposerInput(_ text: String) {
+        let parsed = InputParser.parse(text)
+
+        if selectedBabyIDs.count > 1 && hasMultipleBabies {
+            let targetBabies = babies.filter { selectedBabyIDs.contains($0.id) }
+            if let parsed, parsed.isMultiChild || targetBabies.count > 1 {
+                for targetBaby in targetBabies {
+                    processSingleBabyInput(text, parsed: parsed, baby: targetBaby)
+                }
+                return
+            }
+        }
+
+        if let parsed, parsed.isMultiChild && hasMultipleBabies {
+            for targetBaby in babies {
+                processSingleBabyInput(text, parsed: parsed, baby: targetBaby)
+            }
+            return
+        }
+
+        processSingleBabyInput(text, parsed: parsed, baby: baby)
+    }
+
+    private func processSingleBabyInput(_ text: String, parsed: ParsedEvent?, baby: Baby) {
+        if let parsed, parsed.isSleepEnd, timerVM.isRunning, timerVM.timerCategory == .sleep {
+            let _ = timerVM.stopTimer()
+            conversationVM.processInput(text, baby: baby, context: modelContext)
+        } else if let parsed, parsed.isSleepStart {
+            conversationVM.processInput(text, baby: baby, context: modelContext)
+            if !timerVM.isRunning {
+                timerVM.startTimer(category: .sleep)
+            }
+        } else {
+            conversationVM.processInput(text, baby: baby, context: modelContext)
+        }
+    }
+
     private func handleChipAction(_ action: ChipAction) {
         switch action {
         case .startFeed:
@@ -224,17 +292,31 @@ struct HomeView: View {
             timerVM.startTimer(category: .sleep)
         case .logDiaper(let type):
             withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
-                conversationVM.quickLog(category: .diaper, baby: baby, context: modelContext, diaperType: type)
+                logForSelectedBabies { targetBaby in
+                    conversationVM.quickLog(category: .diaper, baby: targetBaby, context: modelContext, diaperType: type)
+                }
             }
         case .logBottle(let oz):
             withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
-                conversationVM.quickLog(category: .feeding, baby: baby, context: modelContext, feedingType: .bottle, amountOz: oz)
+                logForSelectedBabies { targetBaby in
+                    conversationVM.quickLog(category: .feeding, baby: targetBaby, context: modelContext, feedingType: .bottle, amountOz: oz)
+                }
             }
         case .logBottleCustom:
             customBottleText = ""
             showCustomBottleAlert = true
         case .logGrowth:
             showGrowthSheet = true
+        }
+    }
+
+    private func logForSelectedBabies(_ action: (Baby) -> Void) {
+        if selectedBabyIDs.count > 1 && hasMultipleBabies {
+            for targetBaby in babies where selectedBabyIDs.contains(targetBaby.id) {
+                action(targetBaby)
+            }
+        } else {
+            action(baby)
         }
     }
 

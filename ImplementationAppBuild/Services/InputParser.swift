@@ -32,6 +32,7 @@ nonisolated struct ParsedEvent: Sendable {
     let isQuery: Bool
     let queryTopic: QueryTopic?
     let customDate: Date?
+    let isMultiChild: Bool
 }
 
 struct InputParser {
@@ -43,18 +44,40 @@ struct InputParser {
         let cleanedInput = dateResult?.cleanedInput ?? lower
         let customDate = dateResult?.date
 
+        let multiChild = detectMultiChild(cleanedInput)
+
         if let query = parseQuery(cleanedInput) { return query }
         if let correction = parseCorrection(cleanedInput) { return correction }
-        if let feeding = parseFeeding(cleanedInput) { return applyDate(feeding, customDate) }
-        if let sleep = parseSleep(cleanedInput) { return applyDate(sleep, customDate) }
-        if let diaper = parseDiaper(cleanedInput) { return applyDate(diaper, customDate) }
-        if let health = parseHealth(cleanedInput) { return applyDate(health, customDate) }
-        if let pump = parsePumping(cleanedInput) { return applyDate(pump, customDate) }
-        if let growth = parseGrowth(cleanedInput) { return applyDate(growth, customDate) }
-        if let activity = parseActivity(cleanedInput, raw: input) { return applyDate(activity, customDate) }
-        if let milestone = parseMilestone(cleanedInput, raw: input) { return applyDate(milestone, customDate) }
+        if let feeding = parseFeeding(cleanedInput) { return applyMultiChild(applyDate(feeding, customDate), multiChild) }
+        if let sleep = parseSleep(cleanedInput) { return applyMultiChild(applyDate(sleep, customDate), multiChild) }
+        if let diaper = parseDiaper(cleanedInput) { return applyMultiChild(applyDate(diaper, customDate), multiChild) }
+        if let health = parseHealth(cleanedInput) { return applyMultiChild(applyDate(health, customDate), multiChild) }
+        if let pump = parsePumping(cleanedInput) { return applyMultiChild(applyDate(pump, customDate), multiChild) }
+        if let growth = parseGrowth(cleanedInput) { return applyMultiChild(applyDate(growth, customDate), multiChild) }
+        if let activity = parseActivity(cleanedInput, raw: input) { return applyMultiChild(applyDate(activity, customDate), multiChild) }
+        if let milestone = parseMilestone(cleanedInput, raw: input) { return applyMultiChild(applyDate(milestone, customDate), multiChild) }
 
         return makeEvent(category: .note, notes: input, customDate: customDate)
+    }
+
+    private static func detectMultiChild(_ input: String) -> Bool {
+        let patterns = ["fed both", "both babies", "both kids", "fed them both", "changed both", "both of them"]
+        return patterns.contains(where: { input.contains($0) }) || (input.hasPrefix("both ") || input.contains(" both "))
+    }
+
+    private static func applyMultiChild(_ event: ParsedEvent, _ isMulti: Bool) -> ParsedEvent {
+        guard isMulti else { return event }
+        return ParsedEvent(
+            category: event.category, feedingType: event.feedingType, amountOz: event.amountOz,
+            durationMinutes: event.durationMinutes, diaperType: event.diaperType, temperatureF: event.temperatureF,
+            medicationName: event.medicationName, medicationDose: event.medicationDose,
+            weightLbs: event.weightLbs, heightInches: event.heightInches,
+            notes: event.notes, isTimerStart: event.isTimerStart, isTimerStop: event.isTimerStop,
+            isSleepStart: event.isSleepStart, isSleepEnd: event.isSleepEnd,
+            isCorrection: event.isCorrection, correctionAmount: event.correctionAmount,
+            foodType: event.foodType, isQuery: event.isQuery, queryTopic: event.queryTopic,
+            customDate: event.customDate, isMultiChild: true
+        )
     }
 
     private static func applyDate(_ event: ParsedEvent, _ date: Date?) -> ParsedEvent {
@@ -68,7 +91,7 @@ struct InputParser {
             isSleepStart: event.isSleepStart, isSleepEnd: event.isSleepEnd,
             isCorrection: event.isCorrection, correctionAmount: event.correctionAmount,
             foodType: event.foodType, isQuery: event.isQuery, queryTopic: event.queryTopic,
-            customDate: date
+            customDate: date, isMultiChild: event.isMultiChild
         )
     }
 
@@ -101,7 +124,7 @@ struct InputParser {
             weightLbs: nil, heightInches: nil,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
             isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: true, queryTopic: topic,
-            customDate: nil
+            customDate: nil, isMultiChild: false
         )
     }
 
@@ -127,7 +150,7 @@ struct InputParser {
             weightLbs: nil, heightInches: nil,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
             isCorrection: true, correctionAmount: amount, foodType: nil, isQuery: false, queryTopic: nil,
-            customDate: nil
+            customDate: nil, isMultiChild: false
         )
     }
 
@@ -175,7 +198,7 @@ struct InputParser {
             weightLbs: nil, heightInches: nil,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
             isCorrection: false, correctionAmount: nil, foodType: foodType, isQuery: false, queryTopic: nil,
-            customDate: nil
+            customDate: nil, isMultiChild: false
         )
     }
 
@@ -194,7 +217,7 @@ struct InputParser {
                 weightLbs: nil, heightInches: nil,
                 notes: nil, isTimerStart: true, isTimerStop: false, isSleepStart: true, isSleepEnd: false,
                 isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
-                customDate: nil
+                customDate: nil, isMultiChild: false
             )
         }
 
@@ -234,7 +257,7 @@ struct InputParser {
             weightLbs: nil, heightInches: nil,
             notes: notes, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
             isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
-            customDate: nil
+            customDate: nil, isMultiChild: false
         )
     }
 
@@ -276,7 +299,7 @@ struct InputParser {
             weightLbs: nil, heightInches: nil,
             notes: symptomNotes, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
             isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
-            customDate: nil
+            customDate: nil, isMultiChild: false
         )
     }
 
@@ -288,7 +311,7 @@ struct InputParser {
             weightLbs: nil, heightInches: nil,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
             isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
-            customDate: nil
+            customDate: nil, isMultiChild: false
         )
     }
 
@@ -336,7 +359,7 @@ struct InputParser {
             weightLbs: weight, heightInches: height,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
             isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
-            customDate: nil
+            customDate: nil, isMultiChild: false
         )
     }
 
@@ -371,7 +394,7 @@ struct InputParser {
                     weightLbs: nil, heightInches: nil,
                     notes: notes, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
                     isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
-                    customDate: nil
+                    customDate: nil, isMultiChild: false
                 )
             }
         }
@@ -388,7 +411,7 @@ struct InputParser {
             weightLbs: nil, heightInches: nil,
             notes: raw, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
             isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
-            customDate: nil
+            customDate: nil, isMultiChild: false
         )
     }
 
@@ -421,7 +444,7 @@ struct InputParser {
             weightLbs: weightLbs, heightInches: heightInches,
             notes: notes, isTimerStart: isTimerStart, isTimerStop: isTimerStop, isSleepStart: isSleepStart, isSleepEnd: isSleepEnd,
             isCorrection: isCorrection, correctionAmount: correctionAmount, foodType: foodType, isQuery: isQuery, queryTopic: queryTopic,
-            customDate: customDate
+            customDate: customDate, isMultiChild: false
         )
     }
 
