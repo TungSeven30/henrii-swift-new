@@ -26,7 +26,7 @@ struct StatusHeaderView: View {
                         Image(systemName: "magnifyingglass")
                             .font(.callout)
                             .foregroundStyle(HenriiColors.textSecondary)
-                            .frame(width: 36, height: 36)
+                            .frame(width: 44, height: 44)
                             .background(HenriiColors.canvasElevated)
                             .clipShape(Circle())
                     }
@@ -36,7 +36,7 @@ struct StatusHeaderView: View {
                     Image(systemName: "chart.line.uptrend.xyaxis")
                         .font(.callout)
                         .foregroundStyle(HenriiColors.textSecondary)
-                        .frame(width: 36, height: 36)
+                        .frame(width: 44, height: 44)
                         .background(HenriiColors.canvasElevated)
                         .clipShape(Circle())
                 }
@@ -44,7 +44,7 @@ struct StatusHeaderView: View {
                 Button { onTapAvatar() } label: {
                     Circle()
                         .fill(HenriiColors.accentPrimary.opacity(0.15))
-                        .frame(width: 36, height: 36)
+                        .frame(width: 44, height: 44)
                         .overlay {
                             Text(baby.name.prefix(1))
                                 .font(.henriiHeadline)

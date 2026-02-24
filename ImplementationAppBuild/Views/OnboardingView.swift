@@ -3,6 +3,7 @@ import SwiftData
 
 struct OnboardingView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.henriiReduceMotion) private var reduceMotion
     let onComplete: (UUID) -> Void
 
     @State private var step: Int = 0
@@ -24,7 +25,7 @@ struct OnboardingView: View {
                     Image(systemName: "waveform.circle.fill")
                         .font(.system(size: 56))
                         .foregroundStyle(HenriiColors.accentPrimary)
-                        .symbolEffect(.pulse, options: .repeating, isActive: step == 0)
+                        .symbolEffect(.pulse, options: .repeating, isActive: step == 0 && !reduceMotion)
 
                     switch step {
                     case 0:
@@ -42,7 +43,7 @@ struct OnboardingView: View {
                     }
                 }
                 .padding(.horizontal, HenriiSpacing.margin)
-                .animation(.spring(duration: 0.4, bounce: 0.2), value: step)
+                .animation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.4, bounce: 0.2), value: step)
 
                 Spacer()
                 Spacer()

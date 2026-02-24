@@ -27,6 +27,9 @@ final class Baby {
     @Relationship(deleteRule: .cascade, inverse: \BabyEvent.baby)
     var events: [BabyEvent]
 
+    @Relationship(deleteRule: .cascade, inverse: \Vaccination.baby)
+    var vaccinations: [Vaccination]
+
     init(name: String, birthDate: Date, gender: BabyGender = .boy, isPremature: Bool = false, dueDate: Date? = nil) {
         self.id = UUID()
         self.name = name
@@ -36,6 +39,7 @@ final class Baby {
         self.dueDate = dueDate
         self.createdAt = Date()
         self.events = []
+        self.vaccinations = []
     }
 
     var ageDescription: String {

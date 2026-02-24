@@ -4,6 +4,7 @@ struct TimerCardView: View {
     @Bindable var timerVM: TimerViewModel
     let onStop: ((category: EventCategory, duration: Double, side: FeedingType)?) -> Void
 
+    @Environment(\.henriiReduceMotion) private var reduceMotion
     @State private var slideOffset: CGFloat = 0
     @State private var pulseScale: CGFloat = 1.0
     private let slideThreshold: CGFloat = 120
@@ -26,7 +27,7 @@ struct TimerCardView: View {
                         Text(timerVM.feedingSide == .breastLeft ? "L" : "R")
                             .font(.henriiHeadline)
                             .foregroundStyle(HenriiColors.accentPrimary)
-                            .frame(width: 36, height: 36)
+                            .frame(width: 44, height: 44)
                             .background(HenriiColors.accentPrimary.opacity(0.12))
                             .clipShape(Circle())
                     }
@@ -36,12 +37,14 @@ struct TimerCardView: View {
             Text(timerVM.formattedTime)
                 .font(.henriiData(size: 48))
                 .foregroundStyle(HenriiColors.textPrimary)
-                .scaleEffect(pulseScale)
+                .scaleEffect(reduceMotion ? 1.0 : pulseScale)
                 .animation(
-                    timerVM.isPaused ? .default : .easeInOut(duration: 2).repeatForever(autoreverses: true),
+                    reduceMotion || timerVM.isPaused ? .default : .easeInOut(duration: 2).repeatForever(autoreverses: true),
                     value: pulseScale
                 )
-                .onAppear { pulseScale = 1.02 }
+                .onAppear {
+                    if !reduceMotion { pulseScale = 1.02 }
+                }
                 .contentTransition(.numericText())
 
             HStack(spacing: HenriiSpacing.lg) {

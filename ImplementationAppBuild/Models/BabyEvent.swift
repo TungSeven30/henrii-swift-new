@@ -48,8 +48,11 @@ final class BabyEvent {
     var durationMinutes: Double?
 
     var diaperType: DiaperType?
+    var diaperColor: String?
 
     var sleepQuality: SleepQuality?
+    var sleepLocation: String?
+    var sleepMethod: String?
 
     var weightLbs: Double?
     var heightInches: Double?
@@ -60,6 +63,8 @@ final class BabyEvent {
     var medicationDose: String?
 
     var milestoneDescription: String?
+    var milestonePhotoData: Data?
+    var milestoneContext: String?
     var foodType: String?
     var symptoms: String?
 
@@ -158,27 +163,41 @@ final class BabyEvent {
     }
 
     private var sleepSummary: String {
+        var parts: [String] = []
         if let dur = durationMinutes {
             let hours = Int(dur) / 60
             let mins = Int(dur) % 60
             if hours > 0 {
-                return "Slept \(hours)h \(mins)m"
+                parts.append("Slept \(hours)h \(mins)m")
+            } else {
+                parts.append("Slept \(mins)m")
             }
-            return "Slept \(mins)m"
+        } else if endTime == nil {
+            parts.append("Sleeping...")
+        } else {
+            parts.append("Sleep logged")
         }
-        if endTime == nil {
-            return "Sleeping..."
+        if let loc = sleepLocation, !loc.isEmpty {
+            parts.append(loc)
         }
-        return "Sleep logged"
+        if let method = sleepMethod, !method.isEmpty {
+            parts.append(method)
+        }
+        return parts.joined(separator: " \u{2022} ")
     }
 
     private var diaperSummary: String {
+        var base: String
         switch diaperType {
-        case .wet: return "Wet diaper"
-        case .dirty: return "Dirty diaper"
-        case .both: return "Wet + dirty diaper"
-        case nil: return "Diaper change"
+        case .wet: base = "Wet diaper"
+        case .dirty: base = "Dirty diaper"
+        case .both: base = "Wet + dirty diaper"
+        case nil: base = "Diaper change"
         }
+        if let color = diaperColor, !color.isEmpty {
+            base += " \u{2022} \(color)"
+        }
+        return base
     }
 
     private var growthSummary: String {

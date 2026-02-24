@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ConversationBubbleView: View {
+    @Environment(\.henriiReduceMotion) private var reduceMotion
     let entry: ConversationEntry
     let event: BabyEvent?
     let onDelete: () -> Void

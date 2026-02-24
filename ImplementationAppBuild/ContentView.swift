@@ -25,6 +25,7 @@ struct ContentView: View {
             }
         }
         .tint(HenriiColors.accentPrimary)
+        .modifier(ReduceMotionModifier())
     }
 }
 

@@ -80,7 +80,7 @@ struct ContextChipsView: View {
                 .foregroundStyle(HenriiColors.textPrimary)
         }
         .padding(.horizontal, HenriiSpacing.md)
-        .padding(.vertical, HenriiSpacing.sm)
+        .frame(height: 40)
         .background(HenriiColors.canvasElevated)
         .clipShape(Capsule())
     }

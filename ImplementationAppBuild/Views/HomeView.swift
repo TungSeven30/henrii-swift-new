@@ -7,6 +7,7 @@ struct HomeView: View {
     let onShowInsights: () -> Void
     let onShowProfile: () -> Void
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.henriiReduceMotion) private var reduceMotion
     @State private var conversationVM = ConversationViewModel()
     @State private var timerVM = TimerViewModel()
     @State private var showSearch: Bool = false
@@ -144,7 +145,7 @@ struct HomeView: View {
             }
         }
         .sensoryFeedback(.success, trigger: conversationVM.showUndoToast)
-        .animation(.spring(duration: 0.35, bounce: 0.2), value: timerVM.isRunning)
+        .animation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.35, bounce: 0.2), value: timerVM.isRunning)
         .toolbar(.hidden, for: .navigationBar)
         .gesture(
             DragGesture(minimumDistance: 60)

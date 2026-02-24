@@ -9,6 +9,7 @@ struct ImplementationAppBuildApp: App {
             Baby.self,
             BabyEvent.self,
             ConversationEntry.self,
+            Vaccination.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
