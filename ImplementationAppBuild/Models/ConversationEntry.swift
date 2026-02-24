@@ -10,6 +10,9 @@ nonisolated enum EntryType: String, Codable, Sendable {
     case system
     case daySeparator
     case queryResponse
+    case medicalFlag
+    case dailySummary
+    case collapsedGroup
 }
 
 @Model
@@ -23,6 +26,11 @@ final class ConversationEntry {
     var babyID: UUID?
     var chartData: String?
     var queryTopicRaw: String?
+    var isDismissed: Bool
+    var groupedEventIDs: String?
+    var summaryFeedCount: Int
+    var summarySleepHours: Double
+    var summaryDiaperCount: Int
 
     init(type: EntryType, text: String, timestamp: Date = Date(), eventID: UUID? = nil, babyID: UUID? = nil, chartData: String? = nil, queryTopicRaw: String? = nil) {
         self.id = UUID()
@@ -34,5 +42,10 @@ final class ConversationEntry {
         self.babyID = babyID
         self.chartData = chartData
         self.queryTopicRaw = queryTopicRaw
+        self.isDismissed = false
+        self.groupedEventIDs = nil
+        self.summaryFeedCount = 0
+        self.summarySleepHours = 0
+        self.summaryDiaperCount = 0
     }
 }

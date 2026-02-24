@@ -6,6 +6,7 @@ struct ComposerView: View {
     let onSend: (String) -> Void
     @FocusState private var isFocused: Bool
     @State private var speechService = SpeechService()
+    @State private var isHoldingMic: Bool = false
 
     var body: some View {
         HStack(spacing: HenriiSpacing.md) {
@@ -19,36 +20,36 @@ struct ComposerView: View {
 
                 if speechService.isListening {
                     Button { stopListening() } label: {
-                        Image(systemName: "mic.fill")
-                            .font(.title3)
-                            .foregroundStyle(.red)
-                            .frame(width: 44, height: 44)
-                            .symbolEffect(.pulse, options: .repeating, isActive: true)
+                        ZStack {
+                            Circle()
+                                .fill(Color.red.opacity(0.15))
+                                .frame(width: 56, height: 56)
+                            Image(systemName: "mic.fill")
+                                .font(.title3)
+                                .foregroundStyle(.red)
+                                .symbolEffect(.pulse, options: .repeating, isActive: true)
+                        }
+                        .frame(width: 56, height: 56)
                     }
                     .sensoryFeedback(.impact(weight: .light), trigger: speechService.transcript)
                 } else if text.trimmingCharacters(in: .whitespaces).isEmpty {
-                    Button { startListening() } label: {
-                        Image(systemName: "mic.fill")
-                            .font(.title3)
-                            .foregroundStyle(HenriiColors.accentPrimary)
-                            .frame(width: 44, height: 44)
-                    }
+                    micButton
                 } else {
                     Button { send() } label: {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.title2)
                             .foregroundStyle(HenriiColors.accentPrimary)
-                            .frame(width: 44, height: 44)
+                            .frame(width: 56, height: 56)
                     }
                     .sensoryFeedback(.impact(weight: .medium), trigger: text)
                 }
             }
             .padding(.leading, HenriiSpacing.lg)
             .padding(.trailing, HenriiSpacing.xs)
-            .frame(minHeight: 52)
-            .background(HenriiColors.canvasElevated)
+            .frame(minHeight: 56)
+            .background(.ultraThinMaterial)
             .clipShape(Capsule())
-            .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
+            .shadow(color: .black.opacity(0.08), radius: 12, y: 3)
         }
         .padding(.horizontal, HenriiSpacing.margin)
         .padding(.bottom, HenriiSpacing.sm)
@@ -57,6 +58,32 @@ struct ComposerView: View {
                 text = newValue
             }
         }
+    }
+
+    private var micButton: some View {
+        ZStack {
+            Circle()
+                .fill(isHoldingMic ? HenriiColors.accentPrimary.opacity(0.15) : .clear)
+                .frame(width: 56, height: 56)
+            Image(systemName: "mic.fill")
+                .font(.title3)
+                .foregroundStyle(HenriiColors.accentPrimary)
+                .scaleEffect(isHoldingMic ? 1.15 : 1.0)
+                .animation(.spring(duration: 0.2), value: isHoldingMic)
+        }
+        .frame(width: 56, height: 56)
+        .onTapGesture {
+            startListening()
+        }
+        .onLongPressGesture(minimumDuration: 0.3, pressing: { pressing in
+            isHoldingMic = pressing
+            if pressing {
+                startListening()
+            } else if speechService.isListening {
+                stopListening()
+            }
+        }, perform: {})
+        .sensoryFeedback(.impact(weight: .medium), trigger: isHoldingMic)
     }
 
     private func send() {

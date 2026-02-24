@@ -7,6 +7,8 @@ nonisolated enum ChipAction: Sendable {
     case logBottle(Double?)
     case logBottleCustom
     case logGrowth
+    case logBurp
+    case logSpitUp
 }
 
 struct ContextChipsView: View {
@@ -26,6 +28,7 @@ struct ContextChipsView: View {
                 }
             }
         }
+        .contentMargins(.horizontal, HenriiSpacing.margin)
         .scrollIndicators(.hidden)
         .padding(.bottom, HenriiSpacing.sm)
     }
@@ -86,19 +89,82 @@ struct ContextChipsView: View {
     }
 
     private var suggestedChips: [ChipData] {
-        var chips: [ChipData] = []
+        let lastEvent = events
+            .sorted { $0.timestamp > $1.timestamp }
+            .first
 
-        chips.append(ChipData(emoji: "\u{1F931}", label: "Feed", action: .startFeed))
+        let hoursSinceLastFeed = timeSinceLastEvent(category: .feeding)
+        let hoursSinceLastSleep = timeSinceLastSleep()
 
-        chips.append(ChipData(emoji: "\u{1F4A4}", label: "Sleep", action: .startSleep))
+        if let lastEvent {
+            switch lastEvent.category {
+            case .feeding:
+                return postFeedingChips
+            case .sleep where lastEvent.endTime != nil && hoursSinceLastSleep != nil && hoursSinceLastSleep! < 1:
+                return postWakeChips
+            default:
+                break
+            }
+        }
 
-        chips.append(ChipData(emoji: "\u{1F4A9}", label: "Diaper", action: .logDiaper(.wet), isMenu: true, menuType: .diaper))
+        if let hrs = hoursSinceLastFeed, hrs >= 3 {
+            return hungryChips
+        }
 
-        chips.append(ChipData(emoji: "\u{1F37C}", label: "Bottle", action: .logBottle(nil), isMenu: true, menuType: .bottle))
+        return defaultChips
+    }
 
-        chips.append(ChipData(emoji: "\u{1F4CF}", label: "Growth", action: .logGrowth))
+    private var postFeedingChips: [ChipData] {
+        [
+            ChipData(emoji: "\u{1F4A8}", label: "Burp", action: .logBurp),
+            ChipData(emoji: "\u{1F4A6}", label: "Spit-up", action: .logSpitUp),
+            ChipData(emoji: "\u{1F4A9}", label: "Diaper", action: .logDiaper(.wet), isMenu: true, menuType: .diaper),
+            ChipData(emoji: "\u{1F4A4}", label: "Sleep", action: .startSleep),
+            ChipData(emoji: "\u{1F4CF}", label: "Growth", action: .logGrowth),
+        ]
+    }
 
-        return chips
+    private var postWakeChips: [ChipData] {
+        [
+            ChipData(emoji: "\u{1F931}", label: "Start Feed", action: .startFeed),
+            ChipData(emoji: "\u{1F37C}", label: "Bottle", action: .logBottle(nil), isMenu: true, menuType: .bottle),
+            ChipData(emoji: "\u{1F4A9}", label: "Diaper", action: .logDiaper(.wet), isMenu: true, menuType: .diaper),
+            ChipData(emoji: "\u{1F4CF}", label: "Growth", action: .logGrowth),
+        ]
+    }
+
+    private var hungryChips: [ChipData] {
+        [
+            ChipData(emoji: "\u{1F931}", label: "Feed", action: .startFeed),
+            ChipData(emoji: "\u{1F37C}", label: "Bottle", action: .logBottle(nil), isMenu: true, menuType: .bottle),
+            ChipData(emoji: "\u{1F4A9}", label: "Diaper", action: .logDiaper(.wet), isMenu: true, menuType: .diaper),
+            ChipData(emoji: "\u{1F4A4}", label: "Sleep", action: .startSleep),
+            ChipData(emoji: "\u{1F4CF}", label: "Growth", action: .logGrowth),
+        ]
+    }
+
+    private var defaultChips: [ChipData] {
+        [
+            ChipData(emoji: "\u{1F931}", label: "Feed", action: .startFeed),
+            ChipData(emoji: "\u{1F4A4}", label: "Sleep", action: .startSleep),
+            ChipData(emoji: "\u{1F4A9}", label: "Diaper", action: .logDiaper(.wet), isMenu: true, menuType: .diaper),
+            ChipData(emoji: "\u{1F37C}", label: "Bottle", action: .logBottle(nil), isMenu: true, menuType: .bottle),
+            ChipData(emoji: "\u{1F4CF}", label: "Growth", action: .logGrowth),
+        ]
+    }
+
+    private func timeSinceLastEvent(category: EventCategory) -> Double? {
+        let matching = events.filter { $0.category == category }
+            .sorted { $0.timestamp > $1.timestamp }
+        guard let last = matching.first else { return nil }
+        return Date().timeIntervalSince(last.timestamp) / 3600
+    }
+
+    private func timeSinceLastSleep() -> Double? {
+        let sleeps = events.filter { $0.category == .sleep && $0.endTime != nil }
+            .sorted { ($0.endTime ?? $0.timestamp) > ($1.endTime ?? $1.timestamp) }
+        guard let last = sleeps.first, let endTime = last.endTime else { return nil }
+        return Date().timeIntervalSince(endTime) / 3600
     }
 }
 

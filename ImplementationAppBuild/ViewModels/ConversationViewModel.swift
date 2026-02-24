@@ -72,11 +72,12 @@ final class ConversationViewModel {
 
         generateInsightIfNeeded(baby: baby, event: event, context: context)
         generateNudgeIfNeeded(baby: baby, event: event, context: context)
+        checkMedicalFlag(baby: baby, event: event, context: context)
 
         composerText = ""
     }
 
-    func quickLog(category: EventCategory, baby: Baby, context: ModelContext, feedingType: FeedingType? = nil, diaperType: DiaperType? = nil, amountOz: Double? = nil) {
+    func quickLog(category: EventCategory, baby: Baby, context: ModelContext, feedingType: FeedingType? = nil, diaperType: DiaperType? = nil, amountOz: Double? = nil, notes: String? = nil) {
         insertDaySeparatorIfNeeded(baby: baby, context: context)
 
         let event = BabyEvent(category: category)
@@ -84,6 +85,7 @@ final class ConversationViewModel {
         event.feedingType = feedingType
         event.diaperType = diaperType
         event.amountOz = amountOz
+        event.notes = notes
         context.insert(event)
 
         let confirmation = ConversationEntry(
@@ -118,6 +120,50 @@ final class ConversationViewModel {
         context.delete(event)
     }
 
+    func dismissMedicalFlag(_ entry: ConversationEntry) {
+        entry.isDismissed = true
+    }
+
+    func generateDailySummary(baby: Baby, context: ModelContext) {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+
+        let existingDesc = FetchDescriptor<ConversationEntry>(
+            predicate: #Predicate<ConversationEntry> { $0.timestamp >= todayStart }
+        )
+        let todayEntries = (try? context.fetch(existingDesc)) ?? []
+        let hasSummary = todayEntries.contains { $0.type == .dailySummary }
+        guard !hasSummary else { return }
+
+        let eventDesc = FetchDescriptor<BabyEvent>(
+            predicate: #Predicate { $0.timestamp >= todayStart },
+            sortBy: [SortDescriptor(\.timestamp)]
+        )
+        guard let todayEvents = try? context.fetch(eventDesc) else { return }
+        let babyEvents = todayEvents.filter { $0.baby?.id == baby.id }
+        guard !babyEvents.isEmpty else { return }
+
+        let feedCount = babyEvents.filter { $0.category == .feeding }.count
+        let sleepMinutes = babyEvents.filter { $0.category == .sleep }.compactMap(\.durationMinutes).reduce(0, +)
+        let diaperCount = babyEvents.filter { $0.category == .diaper }.count
+        let sleepHours = sleepMinutes / 60
+
+        var text = ""
+        if feedCount > 0 && sleepHours > 0 && diaperCount > 0 {
+            text = "A solid day. \(feedCount) feeds, \(String(format: "%.1f", sleepHours)) hours of sleep, and \(diaperCount) diaper changes."
+        } else if feedCount > 0 {
+            text = "\(feedCount) feeds logged today so far."
+        } else {
+            text = "Here's today's snapshot."
+        }
+
+        let summary = ConversationEntry(type: .dailySummary, text: text, babyID: baby.id)
+        summary.summaryFeedCount = feedCount
+        summary.summarySleepHours = sleepHours
+        summary.summaryDiaperCount = diaperCount
+        context.insert(summary)
+    }
+
     private func handleCorrection(_ parsed: ParsedEvent, baby: Baby, context: ModelContext) {
         let descriptor = FetchDescriptor<BabyEvent>(
             sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
@@ -130,23 +176,15 @@ final class ConversationViewModel {
         }
 
         if let newOz = parsed.correctionAmount {
-            let oldText = lastEvent.summaryText
             lastEvent.amountOz = newOz
-            let confirmation = ConversationEntry(
-                type: .confirmation,
-                text: "Updated: \(lastEvent.summaryText)",
-                eventID: lastEvent.id,
-                babyID: baby.id
-            )
-            context.insert(confirmation)
 
             let entryDescriptor = FetchDescriptor<ConversationEntry>(
                 sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
             )
             if let entries = try? context.fetch(entryDescriptor) {
                 for entry in entries {
-                    if entry.eventID == lastEvent.id && entry.type == .confirmation && entry.text == oldText {
-                        context.delete(entry)
+                    if entry.eventID == lastEvent.id && entry.type == .confirmation {
+                        entry.text = "Updated: \(lastEvent.summaryText)"
                         break
                     }
                 }
@@ -215,7 +253,7 @@ final class ConversationViewModel {
         return event
     }
 
-    private func insertDaySeparatorIfNeeded(baby: Baby, context: ModelContext) {
+    func insertDaySeparatorIfNeeded(baby: Baby, context: ModelContext) {
         let todayStart = Calendar.current.startOfDay(for: Date())
         let descriptor = FetchDescriptor<ConversationEntry>(
             predicate: #Predicate<ConversationEntry> { $0.timestamp >= todayStart },
@@ -242,6 +280,49 @@ final class ConversationViewModel {
                 babyID: baby.id
             )
             context.insert(sep)
+        }
+    }
+
+    private func checkMedicalFlag(baby: Baby, event: BabyEvent, context: ModelContext) {
+        guard event.category == .health else { return }
+
+        if let temp = event.temperatureF, temp >= 100.4 {
+            let yesterday = Calendar.current.date(byAdding: .hour, value: -24, to: Date())!
+            let descriptor = FetchDescriptor<BabyEvent>(
+                predicate: #Predicate { $0.timestamp >= yesterday },
+                sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+            )
+            let recentHealth = (try? context.fetch(descriptor))?.filter { $0.baby?.id == baby.id && $0.category == .health } ?? []
+            let elevatedTemps = recentHealth.filter { ($0.temperatureF ?? 0) >= 100.4 }
+
+            if elevatedTemps.count >= 2 {
+                let flag = ConversationEntry(
+                    type: .medicalFlag,
+                    text: "Temperature has been elevated (\(String(format: "%.1f", temp))\u{00B0}F) for multiple readings. Monitor closely and contact your pediatrician if it persists or rises above 104\u{00B0}F.",
+                    babyID: baby.id
+                )
+                context.insert(flag)
+            }
+        }
+
+        if let medName = event.medicationName {
+            let twoDaysAgo = Calendar.current.date(byAdding: .day, value: -2, to: Date())!
+            let descriptor = FetchDescriptor<BabyEvent>(
+                predicate: #Predicate { $0.timestamp >= twoDaysAgo },
+                sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+            )
+            let recentMeds = (try? context.fetch(descriptor))?.filter {
+                $0.baby?.id == baby.id && $0.medicationName?.lowercased() == medName.lowercased()
+            } ?? []
+
+            if recentMeds.count >= 6 {
+                let flag = ConversationEntry(
+                    type: .medicalFlag,
+                    text: "\(medName) has been given \(recentMeds.count) times in the last 48 hours. Please verify dosing schedule with your pediatrician.",
+                    babyID: baby.id
+                )
+                context.insert(flag)
+            }
         }
     }
 

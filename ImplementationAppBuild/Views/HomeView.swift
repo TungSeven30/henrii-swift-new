@@ -17,13 +17,25 @@ struct HomeView: View {
     @State private var showCustomBottleAlert: Bool = false
     @State private var customBottleText: String = ""
     @State private var selectedBabyIDs: Set<UUID> = []
+    @State private var showCalendarStrip: Bool = false
+    @State private var filterDate: Date? = nil
     @GestureState private var pinchScale: CGFloat = 1.0
-    @State private var searchDragOffset: CGFloat = 0
     @Query(sort: \ConversationEntry.timestamp, order: .reverse) private var allEntries: [ConversationEntry]
     @Query(sort: \BabyEvent.timestamp, order: .reverse) private var allEvents: [BabyEvent]
 
     private var entries: [ConversationEntry] {
-        allEntries.filter { $0.babyID == nil || $0.babyID == baby.id }.reversed()
+        var base = allEntries.filter { $0.babyID == nil || $0.babyID == baby.id }
+
+        if let filterDate {
+            let calendar = Calendar.current
+            let start = calendar.startOfDay(for: filterDate)
+            let end = calendar.date(byAdding: .day, value: 1, to: start)!
+            base = base.filter { $0.timestamp >= start && $0.timestamp < end }
+        }
+
+        base = base.filter { !($0.type == .medicalFlag && $0.isDismissed) }
+
+        return base.reversed()
     }
 
     private var babyEvents: [BabyEvent] {
@@ -51,6 +63,19 @@ struct HomeView: View {
                     onSwitchBaby: onSwitchBaby
                 )
 
+                if showCalendarStrip {
+                    CalendarStripView { date in
+                        let calendar = Calendar.current
+                        if calendar.isDateInToday(date) {
+                            filterDate = nil
+                        } else {
+                            filterDate = date
+                        }
+                    }
+                    .padding(.vertical, HenriiSpacing.xs)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: HenriiSpacing.md) {
@@ -68,6 +93,11 @@ struct HomeView: View {
                                                 conversationVM.deleteEvent(event, context: modelContext)
                                             }
                                             modelContext.delete(entry)
+                                        }
+                                    },
+                                    onDismissMedical: {
+                                        withAnimation(.spring(duration: 0.3)) {
+                                            conversationVM.dismissMedicalFlag(entry)
                                         }
                                     }
                                 )
@@ -159,7 +189,19 @@ struct HomeView: View {
         }
         .sensoryFeedback(.success, trigger: conversationVM.showUndoToast)
         .animation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.35, bounce: 0.2), value: timerVM.isRunning)
+        .animation(.spring(duration: 0.25), value: showCalendarStrip)
         .toolbar(.hidden, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showCalendarStrip.toggle()
+                } label: {
+                    Image(systemName: showCalendarStrip ? "calendar.circle.fill" : "calendar.circle")
+                        .font(.title3)
+                        .foregroundStyle(HenriiColors.accentPrimary)
+                }
+            }
+        }
         .gesture(pinchGesture)
         .simultaneousGesture(swipeLeftGesture)
         .sheet(isPresented: $showSearch) {
@@ -307,6 +349,18 @@ struct HomeView: View {
             showCustomBottleAlert = true
         case .logGrowth:
             showGrowthSheet = true
+        case .logBurp:
+            withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
+                logForSelectedBabies { targetBaby in
+                    conversationVM.quickLog(category: .note, baby: targetBaby, context: modelContext, notes: "Burp")
+                }
+            }
+        case .logSpitUp:
+            withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
+                logForSelectedBabies { targetBaby in
+                    conversationVM.quickLog(category: .note, baby: targetBaby, context: modelContext, notes: "Spit-up")
+                }
+            }
         }
     }
 

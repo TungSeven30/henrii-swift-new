@@ -5,6 +5,9 @@ struct ConversationBubbleView: View {
     let entry: ConversationEntry
     let event: BabyEvent?
     let onDelete: () -> Void
+    var onDismissMedical: (() -> Void)?
+    var onExpandGroup: (() -> Void)?
+    @State private var isGroupExpanded: Bool = false
 
     var body: some View {
         Group {
@@ -25,6 +28,12 @@ struct ConversationBubbleView: View {
                 daySeparator
             case .queryResponse:
                 queryResponseCard
+            case .medicalFlag:
+                medicalFlagCard
+            case .dailySummary:
+                dailySummaryCard
+            case .collapsedGroup:
+                collapsedGroupCard
             }
         }
     }
@@ -73,13 +82,6 @@ struct ConversationBubbleView: View {
         .padding(HenriiSpacing.lg)
         .background(HenriiColors.canvasElevated)
         .clipShape(.rect(cornerRadius: HenriiRadius.medium))
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            Button(role: .destructive) {
-                onDelete()
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
-        }
         .contextMenu {
             Button(role: .destructive) {
                 onDelete()
@@ -103,6 +105,7 @@ struct ConversationBubbleView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(HenriiColors.semanticCelebration.opacity(0.08))
         .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+        .opacity(0.92)
     }
 
     private var nudgeCard: some View {
@@ -152,6 +155,175 @@ struct ConversationBubbleView: View {
             Spacer()
         }
         .padding(.horizontal, HenriiSpacing.sm)
+    }
+
+    private var medicalFlagCard: some View {
+        VStack(alignment: .leading, spacing: HenriiSpacing.md) {
+            HStack(spacing: HenriiSpacing.sm) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.title3)
+                    .foregroundStyle(HenriiColors.semanticAlert)
+
+                Text("Medical Alert")
+                    .font(.henriiHeadline)
+                    .foregroundStyle(HenriiColors.semanticAlert)
+
+                Spacer()
+            }
+
+            Text(entry.text)
+                .font(.henriiBody)
+                .foregroundStyle(HenriiColors.textPrimary)
+
+            HStack(spacing: HenriiSpacing.md) {
+                Button {
+                    if let url = URL(string: "tel://") {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    Label("Call Pediatrician", systemImage: "phone.fill")
+                        .font(.henriiCallout)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, HenriiSpacing.lg)
+                        .frame(height: 44)
+                        .background(HenriiColors.semanticAlert)
+                        .clipShape(Capsule())
+                }
+
+                Button {
+                    onDismissMedical?()
+                } label: {
+                    Text("Dismiss")
+                        .font(.henriiCallout)
+                        .foregroundStyle(HenriiColors.textSecondary)
+                        .padding(.horizontal, HenriiSpacing.lg)
+                        .frame(height: 44)
+                }
+            }
+        }
+        .padding(HenriiSpacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(HenriiColors.semanticAlert.opacity(0.1))
+        .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+        .overlay(
+            RoundedRectangle(cornerRadius: HenriiRadius.medium)
+                .strokeBorder(HenriiColors.semanticAlert.opacity(0.3), lineWidth: 1)
+        )
+    }
+
+    private var dailySummaryCard: some View {
+        VStack(alignment: .leading, spacing: HenriiSpacing.md) {
+            HStack(spacing: HenriiSpacing.sm) {
+                Image(systemName: "chart.bar.doc.horizontal.fill")
+                    .font(.title3)
+                    .foregroundStyle(HenriiColors.accentPrimary)
+
+                Text("Daily Summary")
+                    .font(.henriiHeadline)
+                    .foregroundStyle(HenriiColors.textPrimary)
+
+                Spacer()
+
+                Text(entry.timestamp, style: .date)
+                    .font(.henriiCaption)
+                    .foregroundStyle(HenriiColors.textTertiary)
+            }
+
+            HStack(spacing: HenriiSpacing.xl) {
+                summaryRing(
+                    value: Double(entry.summaryFeedCount),
+                    maxValue: 10,
+                    color: HenriiColors.dataFeeding,
+                    icon: "drop.fill",
+                    label: "\(entry.summaryFeedCount) feeds"
+                )
+
+                summaryRing(
+                    value: entry.summarySleepHours,
+                    maxValue: 16,
+                    color: HenriiColors.dataSleep,
+                    icon: "moon.fill",
+                    label: String(format: "%.1fh sleep", entry.summarySleepHours)
+                )
+
+                summaryRing(
+                    value: Double(entry.summaryDiaperCount),
+                    maxValue: 12,
+                    color: HenriiColors.dataDiaper,
+                    icon: "leaf.fill",
+                    label: "\(entry.summaryDiaperCount) diapers"
+                )
+            }
+            .frame(maxWidth: .infinity)
+
+            Text(entry.text)
+                .font(.henriiCallout)
+                .foregroundStyle(HenriiColors.textSecondary)
+        }
+        .padding(HenriiSpacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.ultraThinMaterial)
+        .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+    }
+
+    private func summaryRing(value: Double, maxValue: Double, color: Color, icon: String, label: String) -> some View {
+        VStack(spacing: HenriiSpacing.xs) {
+            ZStack {
+                Circle()
+                    .stroke(color.opacity(0.15), lineWidth: 5)
+                    .frame(width: 48, height: 48)
+
+                Circle()
+                    .trim(from: 0, to: min(value / maxValue, 1.0))
+                    .stroke(color, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                    .frame(width: 48, height: 48)
+                    .rotationEffect(.degrees(-90))
+
+                Image(systemName: icon)
+                    .font(.caption)
+                    .foregroundStyle(color)
+            }
+
+            Text(label)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(HenriiColors.textTertiary)
+        }
+    }
+
+    private var collapsedGroupCard: some View {
+        Button {
+            withAnimation(.spring(duration: 0.25)) {
+                isGroupExpanded.toggle()
+            }
+            onExpandGroup?()
+        } label: {
+            HStack(spacing: HenriiSpacing.md) {
+                let count = (entry.groupedEventIDs?.components(separatedBy: ",").count ?? 0)
+                Circle()
+                    .fill(HenriiColors.accentSecondary.opacity(0.12))
+                    .frame(width: 32, height: 32)
+                    .overlay {
+                        Text("\(count)")
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundStyle(HenriiColors.accentSecondary)
+                    }
+
+                Text(entry.text)
+                    .font(.henriiCallout)
+                    .foregroundStyle(HenriiColors.textSecondary)
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(HenriiColors.textTertiary)
+                    .rotationEffect(isGroupExpanded ? .degrees(90) : .zero)
+            }
+            .padding(.horizontal, HenriiSpacing.lg)
+            .padding(.vertical, HenriiSpacing.md)
+            .background(HenriiColors.canvasElevated.opacity(0.6))
+            .clipShape(.rect(cornerRadius: HenriiRadius.small))
+        }
     }
 
     private var queryResponseCard: some View {
