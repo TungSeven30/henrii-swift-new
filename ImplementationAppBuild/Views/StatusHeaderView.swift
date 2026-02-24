@@ -13,7 +13,7 @@ struct StatusHeaderView: View {
             HStack(spacing: HenriiSpacing.lg) {
                 Button { onTapStatus() } label: {
                     HStack(spacing: HenriiSpacing.lg) {
-                        statusPill(icon: "cup.and.saucer.fill", time: timeSince(.feeding), color: HenriiColors.dataFeeding)
+                        statusPill(icon: "drop.fill", time: timeSince(.feeding), color: HenriiColors.dataFeeding)
                         statusPill(icon: "moon.fill", time: timeSince(.sleep), color: HenriiColors.dataSleep)
                         statusPill(icon: "leaf.fill", time: timeSince(.diaper), color: HenriiColors.dataDiaper)
                     }

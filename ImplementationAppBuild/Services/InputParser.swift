@@ -158,7 +158,7 @@ struct InputParser {
 
     private static func parseSleep(_ input: String) -> ParsedEvent? {
         let sleepStartPatterns = ["asleep", "sleeping", "down for", "nap", "put down", "went to sleep", "bedtime", "fell asleep", "going to sleep", "night night", "lights out"]
-        let sleepEndPatterns = ["woke", "awake", "up now", "just woke", "she's up", "he's up", "waking", "woken", "got up", "morning"]
+        let sleepEndPatterns = ["woke", "awake", "up now", "just woke", "she's up", "he's up", "waking", "woken", "got up", "morning", "wake up", "wakes up", "he woke", "she woke", "he wake", "she wake", "never mind"]
 
         if sleepEndPatterns.contains(where: { input.contains($0) }) {
             return makeEvent(category: .sleep, isTimerStop: true, isSleepEnd: true, isQuery: false)

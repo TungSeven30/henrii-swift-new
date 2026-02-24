@@ -84,9 +84,9 @@ final class BabyEvent {
         case .feeding:
             switch feedingType {
             case .breastLeft, .breastRight, .breastBoth: return "circle.lefthalf.filled"
-            case .bottle, .combo: return "cup.and.saucer.fill"
+            case .bottle, .combo: return "drop.fill"
             case .solids: return "fork.knife"
-            case .none: return "cup.and.saucer.fill"
+            case .none: return "drop.fill"
             }
         case .sleep: return "moon.fill"
         case .diaper: return "leaf.fill"

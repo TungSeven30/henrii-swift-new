@@ -11,11 +11,13 @@ struct HomeView: View {
     @State private var timerVM = TimerViewModel()
     @State private var showSearch: Bool = false
     @State private var showGrowthSheet: Bool = false
-    @Query(sort: \ConversationEntry.timestamp) private var allEntries: [ConversationEntry]
+    @State private var showCustomBottleAlert: Bool = false
+    @State private var customBottleText: String = ""
+    @Query(sort: \ConversationEntry.timestamp, order: .reverse) private var allEntries: [ConversationEntry]
     @Query(sort: \BabyEvent.timestamp, order: .reverse) private var allEvents: [BabyEvent]
 
     private var entries: [ConversationEntry] {
-        allEntries.filter { $0.babyID == nil || $0.babyID == baby.id }
+        allEntries.filter { $0.babyID == nil || $0.babyID == baby.id }.reversed()
     }
 
     private var babyEvents: [BabyEvent] {
@@ -44,7 +46,7 @@ struct HomeView: View {
                                 emptyConversationState
                             }
 
-                            ForEach(entries) { entry in
+                            ForEach(Array(entries), id: \.id) { entry in
                                 ConversationBubbleView(
                                     entry: entry,
                                     event: eventFor(entry),
@@ -98,11 +100,8 @@ struct HomeView: View {
                     withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
                         let parsed = InputParser.parse(text)
                         if let parsed, parsed.isSleepEnd, timerVM.isRunning, timerVM.timerCategory == .sleep {
-                            if let result = timerVM.stopTimer() {
-                                handleTimerStop(result)
-                            }
-                            let userEntry = ConversationEntry(type: .userMessage, text: text, babyID: baby.id)
-                            modelContext.insert(userEntry)
+                            let _ = timerVM.stopTimer()
+                            conversationVM.processInput(text, baby: baby, context: modelContext)
                         } else if let parsed, parsed.isSleepStart {
                             conversationVM.processInput(text, baby: baby, context: modelContext)
                             if !timerVM.isRunning {
@@ -161,6 +160,20 @@ struct HomeView: View {
         .sheet(isPresented: $showGrowthSheet) {
             GrowthLogSheet(baby: baby)
         }
+        .alert("Custom Amount", isPresented: $showCustomBottleAlert) {
+            TextField("Ounces", text: $customBottleText)
+                .keyboardType(.decimalPad)
+            Button("Log") {
+                if let oz = Double(customBottleText), oz > 0 {
+                    withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
+                        conversationVM.quickLog(category: .feeding, baby: baby, context: modelContext, feedingType: .bottle, amountOz: oz)
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Enter the amount in ounces")
+        }
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
@@ -216,6 +229,9 @@ struct HomeView: View {
             withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
                 conversationVM.quickLog(category: .feeding, baby: baby, context: modelContext, feedingType: .bottle, amountOz: oz)
             }
+        case .logBottleCustom:
+            customBottleText = ""
+            showCustomBottleAlert = true
         case .logGrowth:
             showGrowthSheet = true
         }

@@ -312,6 +312,9 @@ final class ConversationViewModel {
                 let latestW = String(format: "%.1f", latest.weightLbs ?? 0)
                 var text = "\(baby.name) is at \(latestW) lbs."
 
+                let whoResult = WHOGrowthData.percentile(weightLbs: latest.weightLbs ?? 0, ageMonths: baby.ageInMonths)
+                text += " That's around the \(ordinal(whoResult.percentile)) percentile (\(whoResult.description)) for age."
+
                 if weightEvents.count >= 2 {
                     let prev = weightEvents[weightEvents.count - 2]
                     let diff = (latest.weightLbs ?? 0) - (prev.weightLbs ?? 0)
@@ -442,6 +445,8 @@ final class ConversationViewModel {
                 var text = "Growth log for \(baby.name):"
                 if let latestW = growthEvents.last(where: { $0.weightLbs != nil }) {
                     text += " Weight: \(String(format: "%.1f", latestW.weightLbs!)) lbs."
+                    let whoResult = WHOGrowthData.percentile(weightLbs: latestW.weightLbs!, ageMonths: baby.ageInMonths)
+                    text += " ~\(ordinal(whoResult.percentile)) percentile for age."
                 }
                 if let latestH = growthEvents.last(where: { $0.heightInches != nil }) {
                     text += " Height: \(String(format: "%.1f", latestH.heightInches!)) in."
@@ -521,5 +526,23 @@ final class ConversationViewModel {
                 }
             }
         }
+    }
+
+    private func ordinal(_ n: Int) -> String {
+        let suffix: String
+        let ones = n % 10
+        let tens = (n / 10) % 10
+        if tens == 1 {
+            suffix = "th"
+        } else if ones == 1 {
+            suffix = "st"
+        } else if ones == 2 {
+            suffix = "nd"
+        } else if ones == 3 {
+            suffix = "rd"
+        } else {
+            suffix = "th"
+        }
+        return "\(n)\(suffix)"
     }
 }
