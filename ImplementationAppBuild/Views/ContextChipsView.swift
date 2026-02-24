@@ -80,16 +80,11 @@ struct ContextChipsView: View {
     }
 
     private var suggestedChips: [ChipData] {
-        let hour = Calendar.current.component(.hour, from: Date())
-        let isNightTime = hour >= 22 || hour < 6
-
         var chips: [ChipData] = []
 
         chips.append(ChipData(emoji: "\u{1F37C}", label: "Feed", action: .startFeed))
 
-        if isNightTime || events.first(where: { $0.category == .sleep })?.endTime != nil {
-            chips.append(ChipData(emoji: "\u{1F4A4}", label: "Sleep", action: .startSleep))
-        }
+        chips.append(ChipData(emoji: "\u{1F4A4}", label: "Sleep", action: .startSleep))
 
         chips.append(ChipData(emoji: "\u{1F4A9}", label: "Diaper", action: .logDiaper(.wet), isMenu: true, menuType: .diaper))
 

@@ -97,7 +97,13 @@ struct HomeView: View {
                 ) { text in
                     withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
                         let parsed = InputParser.parse(text)
-                        if let parsed, parsed.isSleepStart {
+                        if let parsed, parsed.isSleepEnd, timerVM.isRunning, timerVM.timerCategory == .sleep {
+                            if let result = timerVM.stopTimer() {
+                                handleTimerStop(result)
+                            }
+                            let userEntry = ConversationEntry(type: .userMessage, text: text, babyID: baby.id)
+                            modelContext.insert(userEntry)
+                        } else if let parsed, parsed.isSleepStart {
                             conversationVM.processInput(text, baby: baby, context: modelContext)
                             if !timerVM.isRunning {
                                 timerVM.startTimer(category: .sleep)
@@ -140,7 +146,7 @@ struct HomeView: View {
         }
         .sensoryFeedback(.success, trigger: conversationVM.showUndoToast)
         .animation(.spring(duration: 0.35, bounce: 0.2), value: timerVM.isRunning)
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .gesture(
             DragGesture(minimumDistance: 60)
                 .onEnded { value in
