@@ -466,12 +466,28 @@ struct InputParser {
             ("day before yesterday", 2),
             ("2 days ago", 2),
             ("two days ago", 2),
+            ("2 days before", 2),
+            ("two days before", 2),
             ("3 days ago", 3),
             ("three days ago", 3),
+            ("3 days before", 3),
+            ("three days before", 3),
             ("4 days ago", 4),
             ("four days ago", 4),
+            ("4 days before", 4),
+            ("four days before", 4),
             ("5 days ago", 5),
             ("five days ago", 5),
+            ("5 days before", 5),
+            ("five days before", 5),
+            ("6 days ago", 6),
+            ("six days ago", 6),
+            ("6 days before", 6),
+            ("six days before", 6),
+            ("7 days ago", 7),
+            ("seven days ago", 7),
+            ("a week ago", 7),
+            ("last week", 7),
             ("yesterday", 1),
             ("last night", 1),
             ("this morning", 0),
@@ -481,6 +497,18 @@ struct InputParser {
             if input.contains(phrase.pattern) {
                 let cleaned = input.replacingOccurrences(of: phrase.pattern, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
                 if let date = calendar.date(byAdding: .day, value: -phrase.daysAgo, to: calendar.startOfDay(for: now)) {
+                    let targetDate = calendar.date(byAdding: .hour, value: 12, to: date)!
+                    return (targetDate, cleaned)
+                }
+            }
+        }
+
+        if let match = input.range(of: #"(\d+)\s*days?\s*(ago|before)"#, options: .regularExpression) {
+            let sub = String(input[match])
+            if let numMatch = sub.range(of: #"\d+"#, options: .regularExpression),
+               let days = Int(sub[numMatch]), days > 0, days <= 365 {
+                let cleaned = input.replacingOccurrences(of: sub, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+                if let date = calendar.date(byAdding: .day, value: -days, to: calendar.startOfDay(for: now)) {
                     let targetDate = calendar.date(byAdding: .hour, value: 12, to: date)!
                     return (targetDate, cleaned)
                 }
