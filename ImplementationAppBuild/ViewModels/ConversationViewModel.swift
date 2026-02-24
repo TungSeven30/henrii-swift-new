@@ -184,8 +184,16 @@ final class ConversationViewModel {
         event.medicationDose = parsed.medicationDose
         event.weightLbs = parsed.weightLbs
         event.heightInches = parsed.heightInches
-        if parsed.category == .note || parsed.category == .activity {
+        event.foodType = parsed.foodType
+        event.symptoms = parsed.notes != nil && parsed.category == .health ? parsed.notes : nil
+        if parsed.category == .note || parsed.category == .activity || parsed.category == .milestone {
             event.notes = parsed.notes
+        }
+        if parsed.category == .diaper && parsed.notes != nil {
+            event.notes = parsed.notes
+        }
+        if parsed.category == .milestone {
+            event.milestoneDescription = parsed.notes
         }
         return event
     }

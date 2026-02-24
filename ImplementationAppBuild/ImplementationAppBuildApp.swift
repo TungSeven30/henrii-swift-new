@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 @main
 struct ImplementationAppBuildApp: App {
@@ -17,6 +18,10 @@ struct ImplementationAppBuildApp: App {
             fatalError("Could not create ModelContainer: \(error)")
         }
     }()
+
+    init() {
+        UIApplication.shared.applicationSupportsShakeToEdit = false
+    }
 
     var body: some Scene {
         WindowGroup {

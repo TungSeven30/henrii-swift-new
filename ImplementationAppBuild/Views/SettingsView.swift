@@ -4,9 +4,11 @@ import SwiftData
 struct SettingsView: View {
     let baby: Baby
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @State private var settings = SettingsManager.shared
     @Query private var babies: [Baby]
     @State private var showAddBaby: Bool = false
+    @State private var showDeleteConfirm: Bool = false
     @State private var showResetConfirm: Bool = false
 
     var body: some View {
@@ -31,8 +33,12 @@ struct SettingsView: View {
                                 .foregroundStyle(HenriiColors.textSecondary)
                         }
                     }
+
+                    Button { showAddBaby = true } label: {
+                        Label("Add Another Baby", systemImage: "plus.circle")
+                    }
                 } header: {
-                    Text("Baby Profile")
+                    Text("Baby Profiles")
                 }
 
                 if babies.count > 1 {
@@ -69,8 +75,28 @@ struct SettingsView: View {
                                 .foregroundStyle(HenriiColors.textTertiary)
                         }
                     }
+
+                    Picker("Tone", selection: $settings.aiTone) {
+                        ForEach(AITone.allCases, id: \.self) { tone in
+                            Text(tone.rawValue).tag(tone)
+                        }
+                    }
+                    .pickerStyle(.menu)
                 } header: {
                     Text("AI Behavior")
+                } footer: {
+                    tonePreview
+                }
+
+                Section {
+                    Toggle("Feeding reminders", isOn: $settings.feedingNotifications)
+                        .tint(HenriiColors.accentPrimary)
+                    Toggle("Sleep reminders", isOn: $settings.sleepNotifications)
+                        .tint(HenriiColors.accentPrimary)
+                    Toggle("Medication alerts", isOn: $settings.medicationNotifications)
+                        .tint(HenriiColors.accentPrimary)
+                } header: {
+                    Text("Notifications")
                 }
 
                 Section {
@@ -80,6 +106,27 @@ struct SettingsView: View {
                         .tint(HenriiColors.accentPrimary)
                 } header: {
                     Text("Units & Format")
+                }
+
+                Section {
+                    HStack {
+                        Image(systemName: "lock.shield")
+                            .foregroundStyle(HenriiColors.accentPrimary)
+                        Text("All data stored on-device only")
+                            .font(.henriiCallout)
+                    }
+
+                    Button(role: .destructive) {
+                        showDeleteConfirm = true
+                    } label: {
+                        Label("Delete All Data", systemImage: "trash")
+                            .foregroundStyle(HenriiColors.semanticAlert)
+                    }
+                } header: {
+                    Text("Data & Privacy")
+                } footer: {
+                    Text("Your data never leaves this device. Henrii processes everything locally.")
+                        .font(.henriiCaption)
                 }
 
                 Section {
@@ -106,6 +153,47 @@ struct SettingsView: View {
                     Button("Done") { dismiss() }
                         .foregroundStyle(HenriiColors.accentPrimary)
                 }
+            }
+            .sheet(isPresented: $showAddBaby) {
+                AddBabyView { _ in }
+            }
+            .alert("Delete All Data?", isPresented: $showDeleteConfirm) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete Everything", role: .destructive) {
+                    deleteAllData()
+                }
+            } message: {
+                Text("This will permanently delete all events and conversation history for \(baby.name). This cannot be undone.")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var tonePreview: some View {
+        let preview: String = {
+            switch settings.aiTone {
+            case .direct: return "\"8 feeds today. On track.\""
+            case .warm: return "\"That's 8 feeds today \u{2014} right on track for this age.\""
+            case .playful: return "\"8 feeds! \(baby.name) is keeping you busy today \u{1F60A}\""
+            }
+        }()
+        Text(preview)
+            .font(.henriiCaption)
+            .foregroundStyle(HenriiColors.textTertiary)
+            .italic()
+    }
+
+    private func deleteAllData() {
+        let eventDescriptor = FetchDescriptor<BabyEvent>()
+        let entryDescriptor = FetchDescriptor<ConversationEntry>()
+        if let events = try? modelContext.fetch(eventDescriptor) {
+            for event in events where event.baby?.id == baby.id {
+                modelContext.delete(event)
+            }
+        }
+        if let entries = try? modelContext.fetch(entryDescriptor) {
+            for entry in entries where entry.babyID == baby.id {
+                modelContext.delete(entry)
             }
         }
     }

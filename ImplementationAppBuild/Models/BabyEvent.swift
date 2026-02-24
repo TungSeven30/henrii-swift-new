@@ -60,6 +60,8 @@ final class BabyEvent {
     var medicationDose: String?
 
     var milestoneDescription: String?
+    var foodType: String?
+    var symptoms: String?
 
     var baby: Baby?
 
@@ -149,6 +151,9 @@ final class BabyEvent {
         if let dur = durationMinutes {
             parts.append(String(format: "%.0fm", dur))
         }
+        if let food = foodType, !food.isEmpty {
+            parts.append(food)
+        }
         return parts.joined(separator: " \u{2022} ")
     }
 
@@ -192,6 +197,7 @@ final class BabyEvent {
             if let dose = medicationDose { medStr += " \(dose)" }
             parts.append(medStr)
         }
+        if let sym = symptoms, !sym.isEmpty { parts.append(sym) }
         return parts.isEmpty ? (notes ?? "Health note") : parts.joined(separator: " \u{2022} ")
     }
 

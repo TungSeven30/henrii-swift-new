@@ -18,6 +18,7 @@ nonisolated struct ParsedEvent: Sendable {
     let isSleepEnd: Bool
     let isCorrection: Bool
     let correctionAmount: Double?
+    let foodType: String?
 }
 
 struct InputParser {
@@ -32,19 +33,24 @@ struct InputParser {
         if let health = parseHealth(lower) { return health }
         if let pump = parsePumping(lower) { return pump }
         if let growth = parseGrowth(lower) { return growth }
+        if let activity = parseActivity(lower, raw: input) { return activity }
+        if let milestone = parseMilestone(lower, raw: input) { return milestone }
 
-        return ParsedEvent(
-            category: .note, feedingType: nil, amountOz: nil, durationMinutes: nil,
-            diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
-            weightLbs: nil, heightInches: nil,
-            notes: input, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: false, correctionAmount: nil
-        )
+        return makeEvent(category: .note, notes: input)
     }
 
     private static func parseCorrection(_ input: String) -> ParsedEvent? {
-        let correctionPatterns = ["actually", "wait,", "wait ", "no,", "no ", "meant", "correction", "not \\d"]
-        guard correctionPatterns.contains(where: { input.contains($0) }) else { return nil }
+        let hasCorrection = input.hasPrefix("actually") ||
+            input.hasPrefix("wait,") || input.hasPrefix("wait ") ||
+            input.hasPrefix("no,") || input.hasPrefix("no ") ||
+            input.contains("meant") || input.contains("correction")
+
+        let hasNotPattern: Bool = {
+            guard let range = input.range(of: #"not\s+\d"#, options: .regularExpression) else { return false }
+            return !range.isEmpty
+        }()
+
+        guard hasCorrection || hasNotPattern else { return nil }
 
         let amount = extractOunces(input) ?? extractNumber(input)
         guard let amount else { return nil }
@@ -54,24 +60,27 @@ struct InputParser {
             diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: true, correctionAmount: amount
+            isCorrection: true, correctionAmount: amount, foodType: nil
         )
     }
 
     private static func parseFeeding(_ input: String) -> ParsedEvent? {
-        let feedPatterns = ["fed", "feed", "bottle", "nursed", "nurse", "breast", "ate", "formula", "solids", "oz", "ounce"]
+        let feedPatterns = ["fed", "feed", "bottle", "nursed", "nurse", "breast", "ate", "formula", "solids", "oz", "ounce", "nursing"]
         guard feedPatterns.contains(where: { input.contains($0) }) else { return nil }
 
         var feedType: FeedingType = .bottle
-        let hasNurseKeywords = input.contains("nursed") || input.contains("nurse") || input.contains("breast")
+        let hasNurseKeywords = input.contains("nursed") || input.contains("nurse") || input.contains("nursing") || input.contains("breast")
+        let hasBottleKeywords = input.contains("bottle") || input.contains("formula")
 
-        if input.contains("left") && input.contains("right") || input.contains("both side") {
+        if hasNurseKeywords && hasBottleKeywords {
+            feedType = .combo
+        } else if input.contains("left") && input.contains("right") || input.contains("both side") {
             feedType = .breastBoth
         } else if input.contains("left") || input.contains(" l ") || input.hasSuffix(" l") || input.contains("l side") {
             feedType = .breastLeft
         } else if input.contains("right") || input.contains(" r ") || input.hasSuffix(" r") || input.contains("r side") {
             feedType = .breastRight
-        } else if hasNurseKeywords && input.contains("then") && (input.contains("bottle") || input.contains("oz")) {
+        } else if hasNurseKeywords && input.contains("then") && (hasBottleKeywords || input.contains("oz")) {
             feedType = .combo
         } else if hasNurseKeywords {
             feedType = .breastBoth
@@ -82,27 +91,32 @@ struct InputParser {
         let amount = extractOunces(input)
         let duration = extractMinutes(input)
 
+        var foodType: String?
+        if feedType == .solids {
+            let foods = ["cereal", "puree", "banana", "avocado", "sweet potato", "apple", "pear", "oatmeal", "rice", "carrots", "peas", "yogurt"]
+            for food in foods {
+                if input.contains(food) {
+                    foodType = food.capitalized
+                    break
+                }
+            }
+        }
+
         return ParsedEvent(
             category: .feeding, feedingType: feedType, amountOz: amount, durationMinutes: duration,
             diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: false, correctionAmount: nil
+            isCorrection: false, correctionAmount: nil, foodType: foodType
         )
     }
 
     private static func parseSleep(_ input: String) -> ParsedEvent? {
-        let sleepStartPatterns = ["asleep", "sleeping", "down for", "nap", "put down", "went to sleep", "bedtime", "fell asleep"]
-        let sleepEndPatterns = ["woke", "awake", "up now", "just woke", "she's up", "he's up", "waking", "woken"]
+        let sleepStartPatterns = ["asleep", "sleeping", "down for", "nap", "put down", "went to sleep", "bedtime", "fell asleep", "going to sleep", "night night", "lights out"]
+        let sleepEndPatterns = ["woke", "awake", "up now", "just woke", "she's up", "he's up", "waking", "woken", "got up", "morning"]
 
         if sleepEndPatterns.contains(where: { input.contains($0) }) {
-            return ParsedEvent(
-                category: .sleep, feedingType: nil, amountOz: nil, durationMinutes: nil,
-                diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
-                weightLbs: nil, heightInches: nil,
-                notes: nil, isTimerStart: false, isTimerStop: true, isSleepStart: false, isSleepEnd: true,
-                isCorrection: false, correctionAmount: nil
-            )
+            return makeEvent(category: .sleep, isTimerStop: true, isSleepEnd: true)
         }
 
         if sleepStartPatterns.contains(where: { input.contains($0) }) || input == "sleep" {
@@ -111,7 +125,7 @@ struct InputParser {
                 diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
                 weightLbs: nil, heightInches: nil,
                 notes: nil, isTimerStart: true, isTimerStop: false, isSleepStart: true, isSleepEnd: false,
-                isCorrection: false, correctionAmount: nil
+                isCorrection: false, correctionAmount: nil, foodType: nil
             )
         }
 
@@ -119,39 +133,52 @@ struct InputParser {
     }
 
     private static func parseDiaper(_ input: String) -> ParsedEvent? {
-        let diaperPatterns = ["diaper", "changed", "blowout", "poop", "pee", "wet", "dirty", "\u{1F4A9}"]
+        let diaperPatterns = ["diaper", "changed", "blowout", "poop", "pee", "wet", "dirty", "\u{1F4A9}", "pooped", "poopy"]
         guard diaperPatterns.contains(where: { input.contains($0) }) else { return nil }
 
         let hasWet = input.contains("wet") || input.contains("pee")
-        let hasDirty = input.contains("dirty") || input.contains("poop") || input.contains("blowout") || input.contains("\u{1F4A9}")
+        let hasDirty = input.contains("dirty") || input.contains("poop") || input.contains("blowout") || input.contains("\u{1F4A9}") || input.contains("poopy")
 
-        var dType: DiaperType?
+        var dType: DiaperType
         if hasWet && hasDirty {
             dType = .both
         } else if hasWet {
             dType = .wet
         } else if hasDirty {
             dType = .dirty
+        } else {
+            dType = .wet
+        }
+
+        var notes: String?
+        let colors = ["green", "yellow", "brown", "black", "tarry", "mucus", "blood", "red"]
+        for color in colors {
+            if input.contains(color) {
+                notes = "Color: \(color)"
+                break
+            }
         }
 
         return ParsedEvent(
             category: .diaper, feedingType: nil, amountOz: nil, durationMinutes: nil,
             diaperType: dType, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
-            notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: false, correctionAmount: nil
+            notes: notes, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
+            isCorrection: false, correctionAmount: nil, foodType: nil
         )
     }
 
     private static func parseHealth(_ input: String) -> ParsedEvent? {
         let temp = extractTemperature(input)
-        let hasMedKeywords = ["tylenol", "advil", "ibuprofen", "acetaminophen", "medicine", "medication", "gave", "dose"].contains(where: { input.contains($0) })
+        let hasMedKeywords = ["tylenol", "advil", "ibuprofen", "acetaminophen", "medicine", "medication", "gave", "dose", "amoxicillin", "motrin"].contains(where: { input.contains($0) })
+        let hasFever = input.contains("fever")
+        let hasSymptoms = ["cough", "congestion", "rash", "vomit", "throwing up", "diarrhea", "ear infection", "runny nose", "stuffy"].contains(where: { input.contains($0) })
 
-        guard temp != nil || hasMedKeywords else { return nil }
+        guard temp != nil || hasMedKeywords || hasFever || hasSymptoms else { return nil }
 
         var medName: String?
         var medDose: String?
-        let medications = ["tylenol", "advil", "ibuprofen", "acetaminophen", "amoxicillin", "motrin"]
+        let medications = ["tylenol", "advil", "ibuprofen", "acetaminophen", "amoxicillin", "motrin", "benadryl", "zyrtec"]
         for med in medications {
             if input.contains(med) {
                 medName = med.capitalized
@@ -162,12 +189,23 @@ struct InputParser {
             medDose = String(input[mlMatch])
         }
 
+        var symptomNotes: String?
+        if hasSymptoms || hasFever {
+            var symptoms: [String] = []
+            if hasFever { symptoms.append("fever") }
+            let symptomList = ["cough", "congestion", "rash", "vomit", "throwing up", "diarrhea", "ear infection", "runny nose", "stuffy"]
+            for s in symptomList {
+                if input.contains(s) { symptoms.append(s) }
+            }
+            symptomNotes = symptoms.joined(separator: ", ")
+        }
+
         return ParsedEvent(
             category: .health, feedingType: nil, amountOz: nil, durationMinutes: nil,
             diaperType: nil, temperatureF: temp, medicationName: medName, medicationDose: medDose,
             weightLbs: nil, heightInches: nil,
-            notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: false, correctionAmount: nil
+            notes: symptomNotes, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
+            isCorrection: false, correctionAmount: nil, foodType: nil
         )
     }
 
@@ -178,7 +216,7 @@ struct InputParser {
             diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: false, correctionAmount: nil
+            isCorrection: false, correctionAmount: nil, foodType: nil
         )
     }
 
@@ -225,11 +263,90 @@ struct InputParser {
             diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: weight, heightInches: height,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: false, correctionAmount: nil
+            isCorrection: false, correctionAmount: nil, foodType: nil
         )
     }
 
-    private static func extractOunces(_ input: String) -> Double? {
+    private static func parseActivity(_ input: String, raw: String) -> ParsedEvent? {
+        let activityMap: [(pattern: String, label: String)] = [
+            ("tummy time", "Tummy time"),
+            ("tummy", "Tummy time"),
+            ("bath", "Bath"),
+            ("outing", "Outing"),
+            ("walk", "Walk"),
+            ("playtime", "Playtime"),
+            ("play time", "Playtime"),
+            ("playing", "Playtime"),
+            ("reading", "Reading"),
+            ("read to", "Reading"),
+            ("swim", "Swimming"),
+            ("park", "Park outing"),
+            ("daycare", "Daycare"),
+            ("picked up", "Picked up from daycare"),
+        ]
+
+        for item in activityMap {
+            if input.contains(item.pattern) {
+                let duration = extractMinutes(input)
+                var notes = item.label
+                if let duration {
+                    notes += " (\(Int(duration))m)"
+                }
+                return ParsedEvent(
+                    category: .activity, feedingType: nil, amountOz: nil, durationMinutes: duration,
+                    diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
+                    weightLbs: nil, heightInches: nil,
+                    notes: notes, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
+                    isCorrection: false, correctionAmount: nil, foodType: nil
+                )
+            }
+        }
+        return nil
+    }
+
+    private static func parseMilestone(_ input: String, raw: String) -> ParsedEvent? {
+        let milestonePatterns = ["milestone", "first time", "first step", "first word", "rolled over", "crawl", "stood up", "smiled", "first tooth", "laughed", "sat up", "clapped"]
+        guard milestonePatterns.contains(where: { input.contains($0) }) else { return nil }
+
+        return ParsedEvent(
+            category: .milestone, feedingType: nil, amountOz: nil, durationMinutes: nil,
+            diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
+            weightLbs: nil, heightInches: nil,
+            notes: raw, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
+            isCorrection: false, correctionAmount: nil, foodType: nil
+        )
+    }
+
+    private static func makeEvent(
+        category: EventCategory,
+        feedingType: FeedingType? = nil,
+        amountOz: Double? = nil,
+        durationMinutes: Double? = nil,
+        diaperType: DiaperType? = nil,
+        temperatureF: Double? = nil,
+        medicationName: String? = nil,
+        medicationDose: String? = nil,
+        weightLbs: Double? = nil,
+        heightInches: Double? = nil,
+        notes: String? = nil,
+        isTimerStart: Bool = false,
+        isTimerStop: Bool = false,
+        isSleepStart: Bool = false,
+        isSleepEnd: Bool = false,
+        isCorrection: Bool = false,
+        correctionAmount: Double? = nil,
+        foodType: String? = nil
+    ) -> ParsedEvent {
+        ParsedEvent(
+            category: category, feedingType: feedingType, amountOz: amountOz, durationMinutes: durationMinutes,
+            diaperType: diaperType, temperatureF: temperatureF, medicationName: medicationName, medicationDose: medicationDose,
+            weightLbs: weightLbs, heightInches: heightInches,
+            notes: notes, isTimerStart: isTimerStart, isTimerStop: isTimerStop, isSleepStart: isSleepStart, isSleepEnd: isSleepEnd,
+            isCorrection: isCorrection, correctionAmount: correctionAmount, foodType: foodType
+        )
+    }
+
+    static func extractOunces(_ input: String) -> Double? {
         if let match = input.range(of: #"(\d+\.?\d*)\s*(oz|ounce)"#, options: .regularExpression) {
             let sub = String(input[match])
             let numStr = sub.replacingOccurrences(of: "oz", with: "")
@@ -269,7 +386,7 @@ struct InputParser {
                 return temp
             }
         }
-        if let match = input.range(of: #"temp\w*\s+(\d{2,3}\.?\d*)"#, options: .regularExpression) {
+        if let match = input.range(of: #"(temp|fever)\w*\s+(\d{2,3}\.?\d*)"#, options: .regularExpression) {
             let sub = String(input[match])
             let numStr = sub.components(separatedBy: CharacterSet.letters.union(.whitespaces)).joined()
             if let temp = Double(numStr), temp >= 95.0, temp <= 110.0 {

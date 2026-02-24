@@ -6,6 +6,7 @@ struct StatusHeaderView: View {
     let onTapStatus: () -> Void
     let onTapInsights: () -> Void
     let onTapAvatar: () -> Void
+    var onTapSearch: (() -> Void)?
 
     var body: some View {
         VStack(spacing: HenriiSpacing.xs) {
@@ -19,6 +20,17 @@ struct StatusHeaderView: View {
                 }
 
                 Spacer()
+
+                if let onTapSearch {
+                    Button { onTapSearch() } label: {
+                        Image(systemName: "magnifyingglass")
+                            .font(.callout)
+                            .foregroundStyle(HenriiColors.textSecondary)
+                            .frame(width: 36, height: 36)
+                            .background(HenriiColors.canvasElevated)
+                            .clipShape(Circle())
+                    }
+                }
 
                 Button { onTapInsights() } label: {
                     Image(systemName: "chart.line.uptrend.xyaxis")

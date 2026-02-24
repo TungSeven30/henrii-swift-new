@@ -9,6 +9,7 @@ struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var conversationVM = ConversationViewModel()
     @State private var timerVM = TimerViewModel()
+    @State private var showSearch: Bool = false
     @Query(sort: \ConversationEntry.timestamp) private var allEntries: [ConversationEntry]
     @Query(sort: \BabyEvent.timestamp, order: .reverse) private var allEvents: [BabyEvent]
 
@@ -31,12 +32,17 @@ struct HomeView: View {
                     events: babyEvents,
                     onTapStatus: onShowToday,
                     onTapInsights: onShowInsights,
-                    onTapAvatar: onShowProfile
+                    onTapAvatar: onShowProfile,
+                    onTapSearch: { showSearch = true }
                 )
 
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: HenriiSpacing.md) {
+                            if entries.isEmpty {
+                                emptyConversationState
+                            }
+
                             ForEach(entries) { entry in
                                 ConversationBubbleView(
                                     entry: entry,
@@ -63,11 +69,10 @@ struct HomeView: View {
                     }
                     .scrollDismissesKeyboard(.interactively)
                     .onChange(of: entries.count) { _, _ in
-                        if let last = entries.last {
-                            withAnimation(.spring(duration: 0.3)) {
-                                proxy.scrollTo(last.id, anchor: .bottom)
-                            }
-                        }
+                        scrollToBottom(proxy)
+                    }
+                    .onAppear {
+                        scrollToBottom(proxy)
                     }
                 }
             }
@@ -136,6 +141,51 @@ struct HomeView: View {
         .sensoryFeedback(.success, trigger: conversationVM.showUndoToast)
         .animation(.spring(duration: 0.35, bounce: 0.2), value: timerVM.isRunning)
         .navigationBarHidden(true)
+        .gesture(
+            DragGesture(minimumDistance: 60)
+                .onEnded { value in
+                    if value.translation.width < -60 && abs(value.translation.height) < 80 {
+                        onShowInsights()
+                    }
+                }
+        )
+        .sheet(isPresented: $showSearch) {
+            SearchView(baby: baby, events: babyEvents)
+        }
+    }
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        if let last = entries.last {
+            withAnimation(.spring(duration: 0.3)) {
+                proxy.scrollTo(last.id, anchor: .bottom)
+            }
+        }
+    }
+
+    private var emptyConversationState: some View {
+        VStack(spacing: HenriiSpacing.xl) {
+            Spacer()
+                .frame(height: 60)
+
+            Image(systemName: "bubble.left.and.text.bubble.right")
+                .font(.system(size: 56))
+                .foregroundStyle(HenriiColors.accentPrimary.opacity(0.3))
+
+            VStack(spacing: HenriiSpacing.sm) {
+                Text("Hi there \u{1F44B}")
+                    .font(.henriiTitle2)
+                    .foregroundStyle(HenriiColors.textPrimary)
+
+                Text("Tell me what's happening with \(baby.name) and I'll handle the rest. Try saying \"fed 4oz\" or \"diaper change\".")
+                    .font(.henriiBody)
+                    .foregroundStyle(HenriiColors.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            Spacer()
+                .frame(height: 20)
+        }
+        .padding(.horizontal, HenriiSpacing.lg)
     }
 
     private func eventFor(_ entry: ConversationEntry) -> BabyEvent? {

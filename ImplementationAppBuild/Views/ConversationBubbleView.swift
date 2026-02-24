@@ -70,6 +70,13 @@ struct ConversationBubbleView: View {
         .padding(HenriiSpacing.lg)
         .background(HenriiColors.canvasElevated)
         .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
         .contextMenu {
             Button(role: .destructive) {
                 onDelete()
