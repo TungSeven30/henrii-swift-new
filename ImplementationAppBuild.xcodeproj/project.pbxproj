@@ -404,6 +404,7 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Henrii uses your microphone for voice input so you can log events hands-free.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Henrii uses your photo library to add a photo of your baby.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Henrii uses speech recognition to convert your voice into text for logging baby events.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -439,6 +440,7 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Henrii uses your microphone for voice input so you can log events hands-free.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Henrii uses your photo library to add a photo of your baby.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Henrii uses speech recognition to convert your voice into text for logging baby events.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";

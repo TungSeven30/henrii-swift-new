@@ -1,5 +1,8 @@
 import SwiftUI
 import SwiftData
+import PhotosUI
+import UserNotifications
+import Speech
 
 struct OnboardingView: View {
     @Environment(\.modelContext) private var modelContext
@@ -10,36 +13,38 @@ struct OnboardingView: View {
     @State private var babyName: String = ""
     @State private var birthDate: Date = Date()
     @State private var selectedGender: BabyGender = .boy
-    @State private var showDatePicker: Bool = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var photoData: Data?
+    @State private var isSaving: Bool = false
+    @State private var partnerName: String = ""
+    @State private var showShareSheet: Bool = false
     @FocusState private var nameFieldFocused: Bool
+
+    private let totalSteps = 7
 
     var body: some View {
         ZStack {
-            HenriiColors.canvasPrimary
-                .ignoresSafeArea()
+            backgroundLayer
 
             VStack(spacing: 0) {
+                if step > 0 && step < totalSteps - 1 {
+                    progressBar
+                        .padding(.top, HenriiSpacing.sm)
+                        .padding(.horizontal, HenriiSpacing.margin)
+                }
+
                 Spacer()
 
-                VStack(spacing: HenriiSpacing.xxl) {
-                    Image(systemName: "waveform.circle.fill")
-                        .font(.system(size: 56))
-                        .foregroundStyle(HenriiColors.accentPrimary)
-                        .symbolEffect(.pulse, options: .repeating, isActive: step == 0 && !reduceMotion)
-
+                Group {
                     switch step {
-                    case 0:
-                        welcomeStep
-                    case 1:
-                        nameStep
-                    case 2:
-                        genderStep
-                    case 3:
-                        birthDateStep
-                    case 4:
-                        readyStep
-                    default:
-                        EmptyView()
+                    case 0: welcomeStep
+                    case 1: nameStep
+                    case 2: genderStep
+                    case 3: birthDateStep
+                    case 4: photoStep
+                    case 5: permissionsStep
+                    case 6: readyStep
+                    default: EmptyView()
                     }
                 }
                 .padding(.horizontal, HenriiSpacing.margin)
@@ -51,34 +56,73 @@ struct OnboardingView: View {
         }
     }
 
+    private var backgroundLayer: some View {
+        ZStack {
+            HenriiColors.canvasPrimary
+                .ignoresSafeArea()
+
+            Circle()
+                .fill(HenriiColors.accentPrimary.opacity(0.06))
+                .frame(width: 500, height: 500)
+                .blur(radius: 80)
+                .offset(y: -120)
+                .ignoresSafeArea()
+
+            Circle()
+                .fill(HenriiColors.dataSleep.opacity(0.04))
+                .frame(width: 400, height: 400)
+                .blur(radius: 60)
+                .offset(x: 100, y: 200)
+                .ignoresSafeArea()
+        }
+    }
+
+    private var progressBar: some View {
+        HStack(spacing: 6) {
+            ForEach(1..<totalSteps - 1, id: \.self) { i in
+                Capsule()
+                    .fill(i <= step ? HenriiColors.accentPrimary : HenriiColors.accentPrimary.opacity(0.15))
+                    .frame(height: 3)
+            }
+        }
+    }
+
+    // MARK: - Step 0: Welcome
+
     private var welcomeStep: some View {
-        VStack(spacing: HenriiSpacing.lg) {
-            Text("Hi. I'm Henrii.")
-                .font(.henriiLargeTitle)
-                .foregroundStyle(HenriiColors.textPrimary)
+        VStack(spacing: HenriiSpacing.xl) {
+            ZStack {
+                Circle()
+                    .fill(HenriiColors.accentPrimary.opacity(0.1))
+                    .frame(width: 100, height: 100)
 
-            Text("I'll help you keep track of everything so you can focus on what matters most.")
-                .font(.henriiBody)
-                .foregroundStyle(HenriiColors.textSecondary)
-                .multilineTextAlignment(.center)
+                Image(systemName: "waveform.circle.fill")
+                    .font(.system(size: 56))
+                    .foregroundStyle(HenriiColors.accentPrimary)
+                    .symbolEffect(.pulse, options: .repeating, isActive: !reduceMotion)
+            }
 
-            Button {
-                withAnimation { step = 1 }
+            VStack(spacing: HenriiSpacing.md) {
+                Text("Hi. I'm Henrii.")
+                    .font(.henriiLargeTitle)
+                    .foregroundStyle(HenriiColors.textPrimary)
+
+                Text("You parent. I'll keep track.")
+                    .font(.henriiBody)
+                    .foregroundStyle(HenriiColors.textSecondary)
+            }
+
+            primaryButton("Let's get started") {
+                advanceTo(1)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                     nameFieldFocused = true
                 }
-            } label: {
-                Text("Let's get started")
-                    .font(.henriiHeadline)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(HenriiColors.accentPrimary)
-                    .clipShape(Capsule())
             }
-            .padding(.top, HenriiSpacing.lg)
+            .padding(.top, HenriiSpacing.sm)
         }
     }
+
+    // MARK: - Step 1: Name
 
     private var nameStep: some View {
         VStack(spacing: HenriiSpacing.lg) {
@@ -93,25 +137,19 @@ struct OnboardingView: View {
                 .focused($nameFieldFocused)
                 .submitLabel(.next)
                 .onSubmit {
-                    guard !babyName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-                    withAnimation { step = 2 }
+                    guard !trimmedName.isEmpty else { return }
+                    advanceTo(2)
                 }
 
-            Button {
-                guard !babyName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-                withAnimation { step = 2 }
-            } label: {
-                Text("Next")
-                    .font(.henriiHeadline)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(babyName.trimmingCharacters(in: .whitespaces).isEmpty ? HenriiColors.accentPrimary.opacity(0.4) : HenriiColors.accentPrimary)
-                    .clipShape(Capsule())
+            primaryButton("Next") {
+                advanceTo(2)
             }
-            .disabled(babyName.trimmingCharacters(in: .whitespaces).isEmpty)
+            .disabled(trimmedName.isEmpty)
+            .opacity(trimmedName.isEmpty ? 0.4 : 1)
         }
     }
+
+    // MARK: - Step 2: Gender
 
     private var genderStep: some View {
         VStack(spacing: HenriiSpacing.xl) {
@@ -130,16 +168,8 @@ struct OnboardingView: View {
                 genderCard(gender: .girl)
             }
 
-            Button {
-                withAnimation { step = 3 }
-            } label: {
-                Text("Next")
-                    .font(.henriiHeadline)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(HenriiColors.accentPrimary)
-                    .clipShape(Capsule())
+            primaryButton("Next") {
+                advanceTo(3)
             }
             .padding(.top, HenriiSpacing.sm)
         }
@@ -159,11 +189,7 @@ struct OnboardingView: View {
             VStack(spacing: HenriiSpacing.md) {
                 ZStack {
                     Circle()
-                        .fill(
-                            isSelected
-                            ? cardColor.opacity(0.2)
-                            : Color(.systemGray5).opacity(0.6)
-                        )
+                        .fill(isSelected ? cardColor.opacity(0.2) : Color(.systemGray5).opacity(0.6))
                         .frame(width: 72, height: 72)
 
                     Text(isBoy ? "\u{1F466}" : "\u{1F467}")
@@ -201,6 +227,8 @@ struct OnboardingView: View {
         .sensoryFeedback(.selection, trigger: isSelected)
     }
 
+    // MARK: - Step 3: Birth Date
+
     private var birthDateStep: some View {
         VStack(spacing: HenriiSpacing.lg) {
             Text("When was \(babyName) born?")
@@ -216,57 +244,252 @@ struct OnboardingView: View {
             .datePickerStyle(.wheel)
             .labelsHidden()
 
-            Button {
-                withAnimation { step = 4 }
-            } label: {
-                Text("Next")
-                    .font(.henriiHeadline)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(HenriiColors.accentPrimary)
-                    .clipShape(Capsule())
+            primaryButton("Next") {
+                advanceTo(4)
             }
         }
     }
 
-    private var readyStep: some View {
-        VStack(spacing: HenriiSpacing.lg) {
-            Text("You're all set.")
-                .font(.henriiLargeTitle)
+    // MARK: - Step 4: Photo (Optional)
+
+    private var photoStep: some View {
+        VStack(spacing: HenriiSpacing.xl) {
+            Text("Want to add a photo?")
+                .font(.henriiTitle2)
                 .foregroundStyle(HenriiColors.textPrimary)
 
-            Text("Just tell me what's happening and I'll handle the rest.")
-                .font(.henriiBody)
-                .foregroundStyle(HenriiColors.textSecondary)
-                .multilineTextAlignment(.center)
+            ZStack {
+                if let photoData, let uiImage = UIImage(data: photoData) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 120, height: 120)
+                        .clipShape(Circle())
+                        .overlay {
+                            Circle()
+                                .stroke(HenriiColors.accentPrimary.opacity(0.3), lineWidth: 3)
+                        }
+                } else {
+                    Circle()
+                        .fill(HenriiColors.canvasElevated)
+                        .frame(width: 120, height: 120)
+                        .overlay {
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 36))
+                                .foregroundStyle(HenriiColors.textTertiary)
+                        }
+                }
+            }
 
-            Button {
-                let baby = Baby(name: babyName.trimmingCharacters(in: .whitespaces), birthDate: birthDate, gender: selectedGender)
-                modelContext.insert(baby)
-
-                let welcome = ConversationEntry(
-                    type: .system,
-                    text: "Welcome! I'm ready to help you track \(baby.name)'s day. Just tell me what's happening \u{2014} \"fed 4oz\", \"diaper change\", \"nap time\" \u{2014} and I'll take care of the rest.",
-                    babyID: baby.id
-                )
-                modelContext.insert(welcome)
-
-                try? modelContext.save()
-                onComplete(baby.id)
-            } label: {
+            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
                 HStack(spacing: HenriiSpacing.sm) {
-                    Image(systemName: "cup.and.saucer.fill")
-                    Text("Log first feed")
+                    Image(systemName: photoData == nil ? "photo.on.rectangle.angled" : "arrow.triangle.2.circlepath")
+                    Text(photoData == nil ? "Choose Photo" : "Change Photo")
                 }
                 .font(.henriiHeadline)
-                .foregroundStyle(.white)
+                .foregroundStyle(HenriiColors.accentPrimary)
                 .frame(maxWidth: .infinity)
                 .frame(height: 56)
-                .background(HenriiColors.accentPrimary)
+                .background(HenriiColors.accentPrimary.opacity(0.12))
                 .clipShape(Capsule())
             }
-            .sensoryFeedback(.success, trigger: step)
+            .onChange(of: selectedPhotoItem) { _, newItem in
+                Task {
+                    if let data = try? await newItem?.loadTransferable(type: Data.self) {
+                        photoData = data
+                    }
+                }
+            }
+
+            VStack(spacing: HenriiSpacing.md) {
+                primaryButton("Next") {
+                    advanceTo(5)
+                }
+
+                if photoData == nil {
+                    Button {
+                        advanceTo(5)
+                    } label: {
+                        Text("Skip for now")
+                            .font(.henriiCallout)
+                            .foregroundStyle(HenriiColors.textSecondary)
+                    }
+                }
+            }
         }
+    }
+
+    // MARK: - Step 5: Permissions
+
+    private var permissionsStep: some View {
+        VStack(spacing: HenriiSpacing.xl) {
+            VStack(spacing: HenriiSpacing.md) {
+                Image(systemName: "bell.and.waves.left.and.right.fill")
+                    .font(.system(size: 44))
+                    .foregroundStyle(HenriiColors.accentPrimary)
+
+                Text("Stay in the loop")
+                    .font(.henriiTitle2)
+                    .foregroundStyle(HenriiColors.textPrimary)
+
+                Text("Henrii can remind you about feedings, medications, and milestones — and listen hands-free so you never have to put the baby down.")
+                    .font(.henriiCallout)
+                    .foregroundStyle(HenriiColors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            VStack(spacing: HenriiSpacing.md) {
+                permissionRow(
+                    icon: "bell.badge.fill",
+                    title: "Notifications",
+                    subtitle: "Feeding reminders & medication alerts"
+                )
+                permissionRow(
+                    icon: "mic.fill",
+                    title: "Voice Input",
+                    subtitle: "Log hands-free from across the room"
+                )
+            }
+            .padding(HenriiSpacing.lg)
+            .background(
+                RoundedRectangle(cornerRadius: HenriiRadius.large)
+                    .fill(.ultraThinMaterial)
+            )
+
+            VStack(spacing: HenriiSpacing.md) {
+                primaryButton("Allow All") {
+                    Task {
+                        await requestAllPermissions()
+                        advanceTo(6)
+                    }
+                }
+
+                Button {
+                    advanceTo(6)
+                } label: {
+                    Text("Maybe later")
+                        .font(.henriiCallout)
+                        .foregroundStyle(HenriiColors.textSecondary)
+                }
+            }
+        }
+    }
+
+    private func permissionRow(icon: String, title: String, subtitle: String) -> some View {
+        HStack(spacing: HenriiSpacing.md) {
+            Image(systemName: icon)
+                .font(.system(size: 20))
+                .foregroundStyle(HenriiColors.accentPrimary)
+                .frame(width: 40, height: 40)
+                .background(HenriiColors.accentPrimary.opacity(0.1))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.henriiHeadline)
+                    .foregroundStyle(HenriiColors.textPrimary)
+
+                Text(subtitle)
+                    .font(.henriiCaption)
+                    .foregroundStyle(HenriiColors.textTertiary)
+            }
+
+            Spacer()
+        }
+    }
+
+    // MARK: - Step 6: Ready
+
+    private var readyStep: some View {
+        VStack(spacing: HenriiSpacing.xl) {
+            ZStack {
+                Circle()
+                    .fill(HenriiColors.dataGrowth.opacity(0.1))
+                    .frame(width: 100, height: 100)
+
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 56))
+                    .foregroundStyle(HenriiColors.dataGrowth)
+            }
+
+            VStack(spacing: HenriiSpacing.md) {
+                Text("You're all set.")
+                    .font(.henriiLargeTitle)
+                    .foregroundStyle(HenriiColors.textPrimary)
+
+                Text("Just tell me what's happening and I'll handle the rest.")
+                    .font(.henriiBody)
+                    .foregroundStyle(HenriiColors.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            primaryButton("Log first feed", icon: "cup.and.saucer.fill") {
+                saveBabyAndComplete()
+            }
+            .disabled(isSaving)
+            .sensoryFeedback(.success, trigger: isSaving)
+        }
+    }
+
+    // MARK: - Helpers
+
+    private var trimmedName: String {
+        babyName.trimmingCharacters(in: .whitespaces)
+    }
+
+    private func advanceTo(_ nextStep: Int) {
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.4, bounce: 0.2)) {
+            step = nextStep
+        }
+    }
+
+    private func primaryButton(_ title: String, icon: String? = nil, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: HenriiSpacing.sm) {
+                if let icon {
+                    Image(systemName: icon)
+                }
+                Text(title)
+            }
+            .font(.henriiHeadline)
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 56)
+            .background(HenriiColors.accentPrimary)
+            .clipShape(Capsule())
+        }
+    }
+
+    private func requestAllPermissions() async {
+        let center = UNUserNotificationCenter.current()
+        _ = try? await center.requestAuthorization(options: [.alert, .badge, .sound])
+
+        _ = await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { status in
+                continuation.resume(returning: status)
+            }
+        }
+
+        await AVAudioSession.sharedInstance().requestRecordPermission { _ in }
+    }
+
+    private func saveBabyAndComplete() {
+        guard !isSaving else { return }
+        isSaving = true
+
+        let baby = Baby(name: trimmedName, birthDate: birthDate, gender: selectedGender)
+        baby.photoData = photoData
+        modelContext.insert(baby)
+
+        let welcome = ConversationEntry(
+            type: .system,
+            text: "Welcome! I'm ready to help you track \(baby.name)'s day. Just tell me what's happening \u{2014} \"fed 4oz\", \"diaper change\", \"nap time\" \u{2014} and I'll take care of the rest.",
+            babyID: baby.id
+        )
+        modelContext.insert(welcome)
+
+        try? modelContext.save()
+        onComplete(baby.id)
     }
 }
