@@ -9,6 +9,7 @@ nonisolated enum EntryType: String, Codable, Sendable {
     case celebration
     case system
     case daySeparator
+    case queryResponse
 }
 
 @Model
@@ -20,8 +21,10 @@ final class ConversationEntry {
     var eventID: UUID?
     var isRead: Bool
     var babyID: UUID?
+    var chartData: String?
+    var queryTopicRaw: String?
 
-    init(type: EntryType, text: String, timestamp: Date = Date(), eventID: UUID? = nil, babyID: UUID? = nil) {
+    init(type: EntryType, text: String, timestamp: Date = Date(), eventID: UUID? = nil, babyID: UUID? = nil, chartData: String? = nil, queryTopicRaw: String? = nil) {
         self.id = UUID()
         self.type = type
         self.text = text
@@ -29,5 +32,7 @@ final class ConversationEntry {
         self.eventID = eventID
         self.isRead = false
         self.babyID = babyID
+        self.chartData = chartData
+        self.queryTopicRaw = queryTopicRaw
     }
 }

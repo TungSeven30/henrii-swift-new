@@ -1,5 +1,15 @@
 import Foundation
 
+nonisolated enum QueryTopic: String, Sendable {
+    case weight
+    case feeding
+    case sleep
+    case diaper
+    case growth
+    case health
+    case general
+}
+
 nonisolated struct ParsedEvent: Sendable {
     let category: EventCategory
     let feedingType: FeedingType?
@@ -19,6 +29,8 @@ nonisolated struct ParsedEvent: Sendable {
     let isCorrection: Bool
     let correctionAmount: Double?
     let foodType: String?
+    let isQuery: Bool
+    let queryTopic: QueryTopic?
 }
 
 struct InputParser {
@@ -26,6 +38,7 @@ struct InputParser {
         let lower = input.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         if lower.isEmpty { return nil }
 
+        if let query = parseQuery(lower) { return query }
         if let correction = parseCorrection(lower) { return correction }
         if let feeding = parseFeeding(lower) { return feeding }
         if let sleep = parseSleep(lower) { return sleep }
@@ -37,6 +50,38 @@ struct InputParser {
         if let milestone = parseMilestone(lower, raw: input) { return milestone }
 
         return makeEvent(category: .note, notes: input)
+    }
+
+    private static func parseQuery(_ input: String) -> ParsedEvent? {
+        let questionIndicators = ["how", "when", "what", "how's", "how is", "how are", "show me", "tell me about", "any insight", "summary", "trend", "doing", "status", "report", "update", "average", "pattern"]
+        let hasQuestion = questionIndicators.contains(where: { input.hasPrefix($0) }) || input.contains("?") || input.contains("how is") || input.contains("how's")
+        guard hasQuestion else { return nil }
+
+        let hasActionWord = ["fed", "feed ", "nursed", "bottle ", "diaper change", "log ", "start ", "stop "].contains(where: { input.contains($0) })
+        if hasActionWord && !input.contains("?") { return nil }
+
+        var topic: QueryTopic = .general
+        if input.contains("weight") || input.contains("heavy") || input.contains("weigh") {
+            topic = .weight
+        } else if input.contains("feed") || input.contains("eat") || input.contains("bottle") || input.contains("nurse") || input.contains("formula") || input.contains("hungry") {
+            topic = .feeding
+        } else if input.contains("sleep") || input.contains("nap") || input.contains("rest") || input.contains("night") {
+            topic = .sleep
+        } else if input.contains("diaper") || input.contains("poop") || input.contains("pee") {
+            topic = .diaper
+        } else if input.contains("grow") || input.contains("height") || input.contains("tall") || input.contains("percentile") {
+            topic = .growth
+        } else if input.contains("health") || input.contains("sick") || input.contains("temp") || input.contains("fever") || input.contains("medicine") || input.contains("medication") {
+            topic = .health
+        }
+
+        return ParsedEvent(
+            category: .note, feedingType: nil, amountOz: nil, durationMinutes: nil,
+            diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
+            weightLbs: nil, heightInches: nil,
+            notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
+            isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: true, queryTopic: topic
+        )
     }
 
     private static func parseCorrection(_ input: String) -> ParsedEvent? {
@@ -60,7 +105,7 @@ struct InputParser {
             diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: true, correctionAmount: amount, foodType: nil
+            isCorrection: true, correctionAmount: amount, foodType: nil, isQuery: false, queryTopic: nil
         )
     }
 
@@ -107,7 +152,7 @@ struct InputParser {
             diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: false, correctionAmount: nil, foodType: foodType
+            isCorrection: false, correctionAmount: nil, foodType: foodType, isQuery: false, queryTopic: nil
         )
     }
 
@@ -116,7 +161,7 @@ struct InputParser {
         let sleepEndPatterns = ["woke", "awake", "up now", "just woke", "she's up", "he's up", "waking", "woken", "got up", "morning"]
 
         if sleepEndPatterns.contains(where: { input.contains($0) }) {
-            return makeEvent(category: .sleep, isTimerStop: true, isSleepEnd: true)
+            return makeEvent(category: .sleep, isTimerStop: true, isSleepEnd: true, isQuery: false)
         }
 
         if sleepStartPatterns.contains(where: { input.contains($0) }) || input == "sleep" {
@@ -125,7 +170,7 @@ struct InputParser {
                 diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
                 weightLbs: nil, heightInches: nil,
                 notes: nil, isTimerStart: true, isTimerStop: false, isSleepStart: true, isSleepEnd: false,
-                isCorrection: false, correctionAmount: nil, foodType: nil
+                isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil
             )
         }
 
@@ -164,7 +209,7 @@ struct InputParser {
             diaperType: dType, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
             notes: notes, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: false, correctionAmount: nil, foodType: nil
+            isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil
         )
     }
 
@@ -205,7 +250,7 @@ struct InputParser {
             diaperType: nil, temperatureF: temp, medicationName: medName, medicationDose: medDose,
             weightLbs: nil, heightInches: nil,
             notes: symptomNotes, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: false, correctionAmount: nil, foodType: nil
+            isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil
         )
     }
 
@@ -216,7 +261,7 @@ struct InputParser {
             diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: false, correctionAmount: nil, foodType: nil
+            isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil
         )
     }
 
@@ -263,7 +308,7 @@ struct InputParser {
             diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: weight, heightInches: height,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: false, correctionAmount: nil, foodType: nil
+            isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil
         )
     }
 
@@ -297,7 +342,7 @@ struct InputParser {
                     diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
                     weightLbs: nil, heightInches: nil,
                     notes: notes, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-                    isCorrection: false, correctionAmount: nil, foodType: nil
+                    isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil
                 )
             }
         }
@@ -313,7 +358,7 @@ struct InputParser {
             diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
             notes: raw, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: false, correctionAmount: nil, foodType: nil
+            isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil
         )
     }
 
@@ -335,14 +380,16 @@ struct InputParser {
         isSleepEnd: Bool = false,
         isCorrection: Bool = false,
         correctionAmount: Double? = nil,
-        foodType: String? = nil
+        foodType: String? = nil,
+        isQuery: Bool = false,
+        queryTopic: QueryTopic? = nil
     ) -> ParsedEvent {
         ParsedEvent(
             category: category, feedingType: feedingType, amountOz: amountOz, durationMinutes: durationMinutes,
             diaperType: diaperType, temperatureF: temperatureF, medicationName: medicationName, medicationDose: medicationDose,
             weightLbs: weightLbs, heightInches: heightInches,
             notes: notes, isTimerStart: isTimerStart, isTimerStop: isTimerStop, isSleepStart: isSleepStart, isSleepEnd: isSleepEnd,
-            isCorrection: isCorrection, correctionAmount: correctionAmount, foodType: foodType
+            isCorrection: isCorrection, correctionAmount: correctionAmount, foodType: foodType, isQuery: isQuery, queryTopic: queryTopic
         )
     }
 

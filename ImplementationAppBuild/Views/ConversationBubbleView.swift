@@ -22,6 +22,8 @@ struct ConversationBubbleView: View {
                 systemBubble
             case .daySeparator:
                 daySeparator
+            case .queryResponse:
+                queryResponseCard
             }
         }
     }
@@ -149,6 +151,103 @@ struct ConversationBubbleView: View {
             Spacer()
         }
         .padding(.horizontal, HenriiSpacing.sm)
+    }
+
+    private var queryResponseCard: some View {
+        let dataPoints = parseChartData(entry.chartData)
+        let topicColor = colorForTopic(entry.queryTopicRaw)
+        let topicIcon = iconForTopic(entry.queryTopicRaw)
+
+        return VStack(alignment: .leading, spacing: HenriiSpacing.md) {
+            HStack(spacing: HenriiSpacing.sm) {
+                Image(systemName: topicIcon)
+                    .font(.callout)
+                    .foregroundStyle(topicColor)
+                Text(entry.text)
+                    .font(.henriiCallout)
+                    .foregroundStyle(HenriiColors.textPrimary)
+            }
+
+            if !dataPoints.isEmpty {
+                chartView(dataPoints: dataPoints, color: topicColor)
+                    .frame(height: 100)
+                    .padding(.top, HenriiSpacing.xs)
+            }
+        }
+        .padding(HenriiSpacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(topicColor.opacity(0.08))
+        .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+    }
+
+    private func chartView(dataPoints: [(label: String, value: Double)], color: Color) -> some View {
+        let maxVal = dataPoints.map(\.value).max() ?? 1
+
+        return HStack(alignment: .bottom, spacing: 6) {
+            ForEach(Array(dataPoints.enumerated()), id: \.offset) { _, point in
+                VStack(spacing: 4) {
+                    Text(formatChartValue(point.value, topic: entry.queryTopicRaw))
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundStyle(HenriiColors.textTertiary)
+
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(
+                            LinearGradient(
+                                colors: [color, color.opacity(0.6)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(width: 28, height: max(8, CGFloat(point.value / maxVal) * 64))
+
+                    Text(point.label)
+                        .font(.system(size: 10))
+                        .foregroundStyle(HenriiColors.textTertiary)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func parseChartData(_ raw: String?) -> [(label: String, value: Double)] {
+        guard let raw, !raw.isEmpty else { return [] }
+        return raw.components(separatedBy: "|").compactMap { pair in
+            let parts = pair.components(separatedBy: ":")
+            guard parts.count == 2, let val = Double(parts[1]) else { return nil }
+            return (label: parts[0], value: val)
+        }
+    }
+
+    private func formatChartValue(_ value: Double, topic: String?) -> String {
+        switch topic {
+        case "weight": return String(format: "%.1f", value)
+        case "feeding": return "\(Int(value))"
+        case "sleep": return String(format: "%.1f", value / 60)
+        case "diaper": return "\(Int(value))"
+        default: return String(format: "%.0f", value)
+        }
+    }
+
+    private func colorForTopic(_ topic: String?) -> Color {
+        switch topic {
+        case "weight", "growth": return HenriiColors.dataGrowth
+        case "feeding": return HenriiColors.dataFeeding
+        case "sleep": return HenriiColors.dataSleep
+        case "diaper": return HenriiColors.dataDiaper
+        case "health": return HenriiColors.semanticAlert
+        default: return HenriiColors.accentPrimary
+        }
+    }
+
+    private func iconForTopic(_ topic: String?) -> String {
+        switch topic {
+        case "weight", "growth": return "chart.line.uptrend.xyaxis"
+        case "feeding": return "cup.and.saucer.fill"
+        case "sleep": return "moon.fill"
+        case "diaper": return "leaf.fill"
+        case "health": return "heart.text.clipboard.fill"
+        default: return "chart.bar.fill"
+        }
     }
 
     private var daySeparator: some View {

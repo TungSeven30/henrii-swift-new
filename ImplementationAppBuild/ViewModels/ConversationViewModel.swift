@@ -27,6 +27,12 @@ final class ConversationViewModel {
             return
         }
 
+        if parsed.isQuery {
+            handleQuery(parsed, baby: baby, context: context)
+            composerText = ""
+            return
+        }
+
         if parsed.isCorrection {
             handleCorrection(parsed, baby: baby, context: context)
             return
@@ -268,6 +274,220 @@ final class ConversationViewModel {
         if event.category == .health, let temp = event.temperatureF, temp >= 100.4 {
             let alert = ConversationEntry(type: .insight, text: "\u{26A0}\u{FE0F} Temperature is \(String(format: "%.1f", temp))\u{00B0}F — that's above normal. Keep monitoring and contact your pediatrician if it persists.", babyID: baby.id)
             context.insert(alert)
+        }
+    }
+
+    private func handleQuery(_ parsed: ParsedEvent, baby: Baby, context: ModelContext) {
+        let topic = parsed.queryTopic ?? .general
+        let descriptor = FetchDescriptor<BabyEvent>(
+            sortBy: [SortDescriptor(\BabyEvent.timestamp, order: .reverse)]
+        )
+        let allEvents = (try? context.fetch(descriptor))?.filter { $0.baby?.id == baby.id } ?? []
+
+        let calendar = Calendar.current
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE"
+
+        switch topic {
+        case .weight:
+            let weightEvents = allEvents.filter { $0.category == .growth && $0.weightLbs != nil }
+                .sorted { $0.timestamp < $1.timestamp }
+
+            if weightEvents.isEmpty {
+                let entry = ConversationEntry(
+                    type: .queryResponse,
+                    text: "No weight data logged yet. Try saying \"weight 10lb\" to start tracking.",
+                    babyID: baby.id,
+                    queryTopicRaw: topic.rawValue
+                )
+                context.insert(entry)
+            } else {
+                let chartPairs = weightEvents.suffix(7).map { event in
+                    let label = formatter.string(from: event.timestamp)
+                    return "\(label):\(event.weightLbs ?? 0)"
+                }
+                let chartData = chartPairs.joined(separator: "|")
+
+                let latest = weightEvents.last!
+                let latestW = String(format: "%.1f", latest.weightLbs ?? 0)
+                var text = "\(baby.name) is at \(latestW) lbs."
+
+                if weightEvents.count >= 2 {
+                    let prev = weightEvents[weightEvents.count - 2]
+                    let diff = (latest.weightLbs ?? 0) - (prev.weightLbs ?? 0)
+                    let direction = diff > 0 ? "up" : diff < 0 ? "down" : "steady"
+                    if diff != 0 {
+                        text += " That's \(direction) \(String(format: "%.1f", abs(diff))) lbs since the last measurement."
+                    }
+                }
+
+                if weightEvents.count == 1 {
+                    text += " Log more weights over time to see the trend."
+                } else {
+                    text += " Looking good — keep tracking!"
+                }
+
+                let entry = ConversationEntry(
+                    type: .queryResponse,
+                    text: text,
+                    babyID: baby.id,
+                    chartData: chartData,
+                    queryTopicRaw: topic.rawValue
+                )
+                context.insert(entry)
+            }
+
+        case .feeding:
+            let feeds = allEvents.filter { $0.category == .feeding }
+            let last7 = feeds.filter { $0.timestamp >= calendar.date(byAdding: .day, value: -7, to: Date())! }
+
+            if feeds.isEmpty {
+                let entry = ConversationEntry(type: .queryResponse, text: "No feeds logged yet.", babyID: baby.id, queryTopicRaw: topic.rawValue)
+                context.insert(entry)
+            } else {
+                var chartPairs: [String] = []
+                for offset in (0..<7).reversed() {
+                    guard let day = calendar.date(byAdding: .day, value: -offset, to: Date()) else { continue }
+                    let start = calendar.startOfDay(for: day)
+                    let end = calendar.date(byAdding: .day, value: 1, to: start)!
+                    let count = last7.filter { $0.timestamp >= start && $0.timestamp < end }.count
+                    chartPairs.append("\(formatter.string(from: start)):\(count)")
+                }
+                let chartData = chartPairs.joined(separator: "|")
+
+                let todayFeeds = last7.filter { calendar.isDateInToday($0.timestamp) }.count
+                let avgDaily = last7.isEmpty ? 0 : last7.count / max(1, Set(last7.map { calendar.startOfDay(for: $0.timestamp) }).count)
+                let totalOz = last7.compactMap(\.amountOz).reduce(0, +)
+
+                var text = "\(baby.name) has had \(todayFeeds) feed\(todayFeeds == 1 ? "" : "s") today."
+                text += " Averaging \(avgDaily) feeds per day this week."
+                if totalOz > 0 {
+                    text += " Total intake: \(String(format: "%.0f", totalOz))oz over 7 days."
+                }
+
+                let entry = ConversationEntry(type: .queryResponse, text: text, babyID: baby.id, chartData: chartData, queryTopicRaw: topic.rawValue)
+                context.insert(entry)
+            }
+
+        case .sleep:
+            let sleeps = allEvents.filter { $0.category == .sleep }
+            let last7 = sleeps.filter { $0.timestamp >= calendar.date(byAdding: .day, value: -7, to: Date())! }
+
+            if sleeps.isEmpty {
+                let entry = ConversationEntry(type: .queryResponse, text: "No sleep data logged yet.", babyID: baby.id, queryTopicRaw: topic.rawValue)
+                context.insert(entry)
+            } else {
+                var chartPairs: [String] = []
+                for offset in (0..<7).reversed() {
+                    guard let day = calendar.date(byAdding: .day, value: -offset, to: Date()) else { continue }
+                    let start = calendar.startOfDay(for: day)
+                    let end = calendar.date(byAdding: .day, value: 1, to: start)!
+                    let mins = last7.filter { $0.timestamp >= start && $0.timestamp < end }.compactMap(\.durationMinutes).reduce(0, +)
+                    chartPairs.append("\(formatter.string(from: start)):\(mins)")
+                }
+                let chartData = chartPairs.joined(separator: "|")
+
+                let totalMins = last7.compactMap(\.durationMinutes).reduce(0, +)
+                let days = max(1, Set(last7.map { calendar.startOfDay(for: $0.timestamp) }).count)
+                let avgHrs = (totalMins / Double(days)) / 60
+
+                var text = String(format: "\(baby.name) is averaging %.1f hours of sleep per day this week.", avgHrs)
+                let todayMins = last7.filter { calendar.isDateInToday($0.timestamp) }.compactMap(\.durationMinutes).reduce(0, +)
+                if todayMins > 0 {
+                    text += String(format: " Today so far: %.1f hours.", todayMins / 60)
+                }
+
+                let entry = ConversationEntry(type: .queryResponse, text: text, babyID: baby.id, chartData: chartData, queryTopicRaw: topic.rawValue)
+                context.insert(entry)
+            }
+
+        case .diaper:
+            let diapers = allEvents.filter { $0.category == .diaper }
+            let last7 = diapers.filter { $0.timestamp >= calendar.date(byAdding: .day, value: -7, to: Date())! }
+
+            if diapers.isEmpty {
+                let entry = ConversationEntry(type: .queryResponse, text: "No diaper changes logged yet.", babyID: baby.id, queryTopicRaw: topic.rawValue)
+                context.insert(entry)
+            } else {
+                var chartPairs: [String] = []
+                for offset in (0..<7).reversed() {
+                    guard let day = calendar.date(byAdding: .day, value: -offset, to: Date()) else { continue }
+                    let start = calendar.startOfDay(for: day)
+                    let end = calendar.date(byAdding: .day, value: 1, to: start)!
+                    let count = last7.filter { $0.timestamp >= start && $0.timestamp < end }.count
+                    chartPairs.append("\(formatter.string(from: start)):\(count)")
+                }
+                let chartData = chartPairs.joined(separator: "|")
+
+                let todayCount = last7.filter { calendar.isDateInToday($0.timestamp) }.count
+                let wet = last7.filter { $0.diaperType == .wet }.count
+                let dirty = last7.filter { $0.diaperType == .dirty }.count
+                let both = last7.filter { $0.diaperType == .both }.count
+
+                var text = "\(todayCount) diaper\(todayCount == 1 ? "" : "s") today."
+                text += " This week: \(wet) wet, \(dirty) dirty, \(both) both."
+
+                let entry = ConversationEntry(type: .queryResponse, text: text, babyID: baby.id, chartData: chartData, queryTopicRaw: topic.rawValue)
+                context.insert(entry)
+            }
+
+        case .growth:
+            let growthEvents = allEvents.filter { $0.category == .growth }
+                .sorted { $0.timestamp < $1.timestamp }
+
+            if growthEvents.isEmpty {
+                let entry = ConversationEntry(type: .queryResponse, text: "No growth data logged yet. Try \"weight 10lb\" or \"height 24in\".", babyID: baby.id, queryTopicRaw: topic.rawValue)
+                context.insert(entry)
+            } else {
+                var text = "Growth log for \(baby.name):"
+                if let latestW = growthEvents.last(where: { $0.weightLbs != nil }) {
+                    text += " Weight: \(String(format: "%.1f", latestW.weightLbs!)) lbs."
+                }
+                if let latestH = growthEvents.last(where: { $0.heightInches != nil }) {
+                    text += " Height: \(String(format: "%.1f", latestH.heightInches!)) in."
+                }
+
+                let weightData = growthEvents.filter { $0.weightLbs != nil }.suffix(7)
+                let chartPairs = weightData.map { event in
+                    "\(formatter.string(from: event.timestamp)):\(event.weightLbs ?? 0)"
+                }
+                let chartData = chartPairs.joined(separator: "|")
+
+                let entry = ConversationEntry(type: .queryResponse, text: text, babyID: baby.id, chartData: chartData.isEmpty ? nil : chartData, queryTopicRaw: topic.rawValue)
+                context.insert(entry)
+            }
+
+        case .health:
+            let healthEvents = allEvents.filter { $0.category == .health }
+                .sorted { $0.timestamp > $1.timestamp }
+
+            if healthEvents.isEmpty {
+                let entry = ConversationEntry(type: .queryResponse, text: "No health entries logged. That's great!", babyID: baby.id, queryTopicRaw: topic.rawValue)
+                context.insert(entry)
+            } else {
+                var text = "Recent health log:"
+                for event in healthEvents.prefix(3) {
+                    text += " \(event.summaryText) (\(event.timestamp.formatted(.dateTime.month().day())))."
+                }
+                let entry = ConversationEntry(type: .queryResponse, text: text, babyID: baby.id, queryTopicRaw: topic.rawValue)
+                context.insert(entry)
+            }
+
+        case .general:
+            let todayStart = calendar.startOfDay(for: Date())
+            let todayEvents = allEvents.filter { $0.timestamp >= todayStart }
+            let feeds = todayEvents.filter { $0.category == .feeding }.count
+            let diapers = todayEvents.filter { $0.category == .diaper }.count
+            let sleepMins = todayEvents.filter { $0.category == .sleep }.compactMap(\.durationMinutes).reduce(0, +)
+
+            var text = "Here's \(baby.name)'s day so far: \(feeds) feed\(feeds == 1 ? "" : "s"), \(diapers) diaper\(diapers == 1 ? "" : "s")"
+            if sleepMins > 0 {
+                text += String(format: ", %.1f hours of sleep", sleepMins / 60)
+            }
+            text += ". Looking steady!"
+
+            let entry = ConversationEntry(type: .queryResponse, text: text, babyID: baby.id, queryTopicRaw: topic.rawValue)
+            context.insert(entry)
         }
     }
 
