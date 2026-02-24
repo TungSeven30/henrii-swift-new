@@ -402,6 +402,14 @@ final class ConversationViewModel {
         formatter.dateFormat = "EEE"
 
         switch topic {
+        case .medication:
+            handleMedicationQuery(parsed, baby: baby, allEvents: allEvents, context: context)
+            return
+
+        case .lastEvent:
+            handleLastEventQuery(parsed, baby: baby, allEvents: allEvents, context: context)
+            return
+
         case .weight:
             let weightEvents = allEvents.filter { $0.category == .growth && $0.weightLbs != nil }
                 .sorted { $0.timestamp < $1.timestamp }
@@ -605,6 +613,129 @@ final class ConversationViewModel {
             text += ". Looking steady!"
 
             let entry = ConversationEntry(type: .queryResponse, text: text, babyID: baby.id, queryTopicRaw: topic.rawValue)
+            context.insert(entry)
+        }
+    }
+
+    private func handleMedicationQuery(_ parsed: ParsedEvent, baby: Baby, allEvents: [BabyEvent], context: ModelContext) {
+        let medName = parsed.queryMedicationName ?? "medication"
+        let medEvents = allEvents.filter {
+            $0.category == .health && $0.medicationName?.lowercased() == medName.lowercased()
+        }.sorted { $0.timestamp > $1.timestamp }
+
+        if medEvents.isEmpty {
+            let entry = ConversationEntry(
+                type: .queryResponse,
+                text: "No \(medName) doses logged yet.",
+                babyID: baby.id,
+                queryTopicRaw: "health"
+            )
+            context.insert(entry)
+        } else {
+            let last = medEvents[0]
+            let timeAgo = RelativeDateTimeFormatter()
+            timeAgo.unitsStyle = .full
+            let relativeTime = timeAgo.localizedString(for: last.timestamp, relativeTo: Date())
+
+            let timeFormatter = DateFormatter()
+            timeFormatter.dateFormat = "h:mm a"
+            let exactTime = timeFormatter.string(from: last.timestamp)
+
+            let dayFormatter = DateFormatter()
+            dayFormatter.dateStyle = .medium
+            dayFormatter.timeStyle = .none
+            let dayStr = Calendar.current.isDateInToday(last.timestamp) ? "today" :
+                         Calendar.current.isDateInYesterday(last.timestamp) ? "yesterday" :
+                         dayFormatter.string(from: last.timestamp)
+
+            var text = "\(baby.name) had \(medName)"
+            if let dose = last.medicationDose {
+                text += " (\(dose))"
+            }
+            text += " \(dayStr) at \(exactTime) (\(relativeTime))."
+
+            if medEvents.count > 1 {
+                text += " That's \(medEvents.count) dose\(medEvents.count == 1 ? "" : "s") total."
+            }
+
+            let entry = ConversationEntry(
+                type: .queryResponse,
+                text: text,
+                babyID: baby.id,
+                queryTopicRaw: "health"
+            )
+            context.insert(entry)
+        }
+    }
+
+    private func handleLastEventQuery(_ parsed: ParsedEvent, baby: Baby, allEvents: [BabyEvent], context: ModelContext) {
+        guard let category = parsed.queryCategory else {
+            let entry = ConversationEntry(type: .queryResponse, text: "I'm not sure what you're looking for.", babyID: baby.id, queryTopicRaw: "general")
+            context.insert(entry)
+            return
+        }
+
+        let matching = allEvents.filter { $0.category == category }.sorted { $0.timestamp > $1.timestamp }
+
+        if matching.isEmpty {
+            let label = category.rawValue
+            let entry = ConversationEntry(
+                type: .queryResponse,
+                text: "No \(label) events logged yet.",
+                babyID: baby.id,
+                queryTopicRaw: label
+            )
+            context.insert(entry)
+        } else {
+            let last = matching[0]
+            let timeAgo = RelativeDateTimeFormatter()
+            timeAgo.unitsStyle = .full
+            let relativeTime = timeAgo.localizedString(for: last.timestamp, relativeTo: Date())
+
+            let timeFormatter = DateFormatter()
+            timeFormatter.dateFormat = "h:mm a"
+            let exactTime = timeFormatter.string(from: last.timestamp)
+
+            let dayStr: String
+            if Calendar.current.isDateInToday(last.timestamp) {
+                dayStr = "today"
+            } else if Calendar.current.isDateInYesterday(last.timestamp) {
+                dayStr = "yesterday"
+            } else {
+                let dayFormatter = DateFormatter()
+                dayFormatter.dateStyle = .medium
+                dayFormatter.timeStyle = .none
+                dayStr = dayFormatter.string(from: last.timestamp)
+            }
+
+            var text = "Last \(category.rawValue): \(last.summaryText) — \(dayStr) at \(exactTime) (\(relativeTime))."
+
+            if matching.count >= 2 {
+                let prev = matching[1]
+                let gap = last.timestamp.timeIntervalSince(prev.timestamp)
+                let gapHours = Int(gap / 3600)
+                let gapMins = Int((gap.truncatingRemainder(dividingBy: 3600)) / 60)
+                if gapHours > 0 {
+                    text += " Previous one was \(gapHours)h \(gapMins)m before that."
+                } else {
+                    text += " Previous one was \(gapMins)m before that."
+                }
+            }
+
+            let topicRaw: String
+            switch category {
+            case .feeding: topicRaw = "feeding"
+            case .sleep: topicRaw = "sleep"
+            case .diaper: topicRaw = "diaper"
+            default: topicRaw = "general"
+            }
+
+            let entry = ConversationEntry(
+                type: .queryResponse,
+                text: text,
+                babyID: baby.id,
+                queryTopicRaw: topicRaw
+            )
             context.insert(entry)
         }
     }

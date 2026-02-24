@@ -14,6 +14,7 @@ struct HomeView: View {
     @State private var timerVM = TimerViewModel()
     @State private var handoffService = HandoffService()
     @State private var showSearch: Bool = false
+    @State private var searchAutoFocus: Bool = false
     @State private var showGrowthSheet: Bool = false
     @State private var showCustomBottleAlert: Bool = false
     @State private var customBottleText: String = ""
@@ -213,7 +214,10 @@ struct HomeView: View {
         .gesture(pinchGesture)
         .simultaneousGesture(swipeLeftGesture)
         .sheet(isPresented: $showSearch) {
-            SearchView(baby: baby, events: babyEvents)
+            SearchView(baby: baby, events: babyEvents, autoFocus: searchAutoFocus)
+        }
+        .onChange(of: showSearch) { _, isShowing in
+            if !isShowing { searchAutoFocus = false }
         }
         .sheet(isPresented: $showGrowthSheet) {
             GrowthLogSheet(baby: baby)
@@ -256,6 +260,7 @@ struct HomeView: View {
                     onShowInsights()
                 }
                 if value.translation.height > 80 && abs(value.translation.width) < 60 {
+                    searchAutoFocus = true
                     showSearch = true
                 }
             }
