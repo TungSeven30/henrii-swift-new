@@ -1,11 +1,24 @@
 import Foundation
 import SwiftData
 
+nonisolated enum BabyGender: String, Codable, Sendable, CaseIterable {
+    case boy
+    case girl
+
+    var displayName: String {
+        switch self {
+        case .boy: return "Boy"
+        case .girl: return "Girl"
+        }
+    }
+}
+
 @Model
 final class Baby {
     var id: UUID
     var name: String
     var birthDate: Date
+    var gender: BabyGender
     var photoData: Data?
     var isPremature: Bool
     var dueDate: Date?
@@ -14,10 +27,11 @@ final class Baby {
     @Relationship(deleteRule: .cascade, inverse: \BabyEvent.baby)
     var events: [BabyEvent]
 
-    init(name: String, birthDate: Date, isPremature: Bool = false, dueDate: Date? = nil) {
+    init(name: String, birthDate: Date, gender: BabyGender = .boy, isPremature: Bool = false, dueDate: Date? = nil) {
         self.id = UUID()
         self.name = name
         self.birthDate = birthDate
+        self.gender = gender
         self.isPremature = isPremature
         self.dueDate = dueDate
         self.createdAt = Date()

@@ -8,6 +8,7 @@ struct OnboardingView: View {
     @State private var step: Int = 0
     @State private var babyName: String = ""
     @State private var birthDate: Date = Date()
+    @State private var selectedGender: BabyGender = .boy
     @State private var showDatePicker: Bool = false
     @FocusState private var nameFieldFocused: Bool
 
@@ -31,8 +32,10 @@ struct OnboardingView: View {
                     case 1:
                         nameStep
                     case 2:
-                        birthDateStep
+                        genderStep
                     case 3:
+                        birthDateStep
+                    case 4:
                         readyStep
                     default:
                         EmptyView()
@@ -109,6 +112,54 @@ struct OnboardingView: View {
         }
     }
 
+    private var genderStep: some View {
+        VStack(spacing: HenriiSpacing.lg) {
+            Text("Is \(babyName) a boy or girl?")
+                .font(.henriiTitle2)
+                .foregroundStyle(HenriiColors.textPrimary)
+
+            Text("Used for WHO growth chart comparison")
+                .font(.henriiCallout)
+                .foregroundStyle(HenriiColors.textTertiary)
+
+            HStack(spacing: HenriiSpacing.lg) {
+                ForEach(BabyGender.allCases, id: \.rawValue) { gender in
+                    Button {
+                        selectedGender = gender
+                    } label: {
+                        VStack(spacing: HenriiSpacing.sm) {
+                            Image(systemName: gender == .boy ? "figure.child" : "figure.child.circle")
+                                .font(.system(size: 36))
+                            Text(gender.displayName)
+                                .font(.henriiHeadline)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 100)
+                        .background(selectedGender == gender ? HenriiColors.accentPrimary.opacity(0.15) : HenriiColors.canvasElevated)
+                        .foregroundStyle(selectedGender == gender ? HenriiColors.accentPrimary : HenriiColors.textSecondary)
+                        .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: HenriiRadius.medium)
+                                .stroke(selectedGender == gender ? HenriiColors.accentPrimary : .clear, lineWidth: 2)
+                        )
+                    }
+                }
+            }
+
+            Button {
+                withAnimation { step = 3 }
+            } label: {
+                Text("Next")
+                    .font(.henriiHeadline)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(HenriiColors.accentPrimary)
+                    .clipShape(Capsule())
+            }
+        }
+    }
+
     private var birthDateStep: some View {
         VStack(spacing: HenriiSpacing.lg) {
             Text("When was \(babyName) born?")
@@ -125,7 +176,7 @@ struct OnboardingView: View {
             .labelsHidden()
 
             Button {
-                withAnimation { step = 3 }
+                withAnimation { step = 4 }
             } label: {
                 Text("Next")
                     .font(.henriiHeadline)
@@ -150,7 +201,7 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
 
             Button {
-                let baby = Baby(name: babyName.trimmingCharacters(in: .whitespaces), birthDate: birthDate)
+                let baby = Baby(name: babyName.trimmingCharacters(in: .whitespaces), birthDate: birthDate, gender: selectedGender)
                 modelContext.insert(baby)
 
                 let welcome = ConversationEntry(

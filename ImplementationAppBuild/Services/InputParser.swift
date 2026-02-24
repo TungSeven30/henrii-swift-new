@@ -31,6 +31,7 @@ nonisolated struct ParsedEvent: Sendable {
     let foodType: String?
     let isQuery: Bool
     let queryTopic: QueryTopic?
+    let customDate: Date?
 }
 
 struct InputParser {
@@ -38,18 +39,37 @@ struct InputParser {
         let lower = input.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         if lower.isEmpty { return nil }
 
-        if let query = parseQuery(lower) { return query }
-        if let correction = parseCorrection(lower) { return correction }
-        if let feeding = parseFeeding(lower) { return feeding }
-        if let sleep = parseSleep(lower) { return sleep }
-        if let diaper = parseDiaper(lower) { return diaper }
-        if let health = parseHealth(lower) { return health }
-        if let pump = parsePumping(lower) { return pump }
-        if let growth = parseGrowth(lower) { return growth }
-        if let activity = parseActivity(lower, raw: input) { return activity }
-        if let milestone = parseMilestone(lower, raw: input) { return milestone }
+        let dateResult = extractDate(lower)
+        let cleanedInput = dateResult?.cleanedInput ?? lower
+        let customDate = dateResult?.date
 
-        return makeEvent(category: .note, notes: input)
+        if let query = parseQuery(cleanedInput) { return query }
+        if let correction = parseCorrection(cleanedInput) { return correction }
+        if let feeding = parseFeeding(cleanedInput) { return applyDate(feeding, customDate) }
+        if let sleep = parseSleep(cleanedInput) { return applyDate(sleep, customDate) }
+        if let diaper = parseDiaper(cleanedInput) { return applyDate(diaper, customDate) }
+        if let health = parseHealth(cleanedInput) { return applyDate(health, customDate) }
+        if let pump = parsePumping(cleanedInput) { return applyDate(pump, customDate) }
+        if let growth = parseGrowth(cleanedInput) { return applyDate(growth, customDate) }
+        if let activity = parseActivity(cleanedInput, raw: input) { return applyDate(activity, customDate) }
+        if let milestone = parseMilestone(cleanedInput, raw: input) { return applyDate(milestone, customDate) }
+
+        return makeEvent(category: .note, notes: input, customDate: customDate)
+    }
+
+    private static func applyDate(_ event: ParsedEvent, _ date: Date?) -> ParsedEvent {
+        guard let date else { return event }
+        return ParsedEvent(
+            category: event.category, feedingType: event.feedingType, amountOz: event.amountOz,
+            durationMinutes: event.durationMinutes, diaperType: event.diaperType, temperatureF: event.temperatureF,
+            medicationName: event.medicationName, medicationDose: event.medicationDose,
+            weightLbs: event.weightLbs, heightInches: event.heightInches,
+            notes: event.notes, isTimerStart: event.isTimerStart, isTimerStop: event.isTimerStop,
+            isSleepStart: event.isSleepStart, isSleepEnd: event.isSleepEnd,
+            isCorrection: event.isCorrection, correctionAmount: event.correctionAmount,
+            foodType: event.foodType, isQuery: event.isQuery, queryTopic: event.queryTopic,
+            customDate: date
+        )
     }
 
     private static func parseQuery(_ input: String) -> ParsedEvent? {
@@ -80,7 +100,8 @@ struct InputParser {
             diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: true, queryTopic: topic
+            isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: true, queryTopic: topic,
+            customDate: nil
         )
     }
 
@@ -105,7 +126,8 @@ struct InputParser {
             diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: true, correctionAmount: amount, foodType: nil, isQuery: false, queryTopic: nil
+            isCorrection: true, correctionAmount: amount, foodType: nil, isQuery: false, queryTopic: nil,
+            customDate: nil
         )
     }
 
@@ -152,13 +174,14 @@ struct InputParser {
             diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: false, correctionAmount: nil, foodType: foodType, isQuery: false, queryTopic: nil
+            isCorrection: false, correctionAmount: nil, foodType: foodType, isQuery: false, queryTopic: nil,
+            customDate: nil
         )
     }
 
     private static func parseSleep(_ input: String) -> ParsedEvent? {
         let sleepStartPatterns = ["asleep", "sleeping", "down for", "nap", "put down", "went to sleep", "bedtime", "fell asleep", "going to sleep", "night night", "lights out"]
-        let sleepEndPatterns = ["woke", "awake", "up now", "just woke", "she's up", "he's up", "waking", "woken", "got up", "morning", "wake up", "wakes up", "he woke", "she woke", "he wake", "she wake", "never mind"]
+        let sleepEndPatterns = ["woke", "awake", "up now", "just woke", "she's up", "he's up", "waking", "woken", "got up", "morning", "wake up", "wakes up", "he woke", "she woke", "he wake", "she wake", "never mind", "wake"]
 
         if sleepEndPatterns.contains(where: { input.contains($0) }) {
             return makeEvent(category: .sleep, isTimerStop: true, isSleepEnd: true, isQuery: false)
@@ -170,7 +193,8 @@ struct InputParser {
                 diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
                 weightLbs: nil, heightInches: nil,
                 notes: nil, isTimerStart: true, isTimerStop: false, isSleepStart: true, isSleepEnd: false,
-                isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil
+                isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
+                customDate: nil
             )
         }
 
@@ -209,7 +233,8 @@ struct InputParser {
             diaperType: dType, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
             notes: notes, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil
+            isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
+            customDate: nil
         )
     }
 
@@ -250,7 +275,8 @@ struct InputParser {
             diaperType: nil, temperatureF: temp, medicationName: medName, medicationDose: medDose,
             weightLbs: nil, heightInches: nil,
             notes: symptomNotes, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil
+            isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
+            customDate: nil
         )
     }
 
@@ -261,7 +287,8 @@ struct InputParser {
             diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil
+            isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
+            customDate: nil
         )
     }
 
@@ -308,7 +335,8 @@ struct InputParser {
             diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: weight, heightInches: height,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil
+            isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
+            customDate: nil
         )
     }
 
@@ -342,7 +370,8 @@ struct InputParser {
                     diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
                     weightLbs: nil, heightInches: nil,
                     notes: notes, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-                    isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil
+                    isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
+                    customDate: nil
                 )
             }
         }
@@ -358,7 +387,8 @@ struct InputParser {
             diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
             notes: raw, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
-            isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil
+            isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
+            customDate: nil
         )
     }
 
@@ -382,14 +412,16 @@ struct InputParser {
         correctionAmount: Double? = nil,
         foodType: String? = nil,
         isQuery: Bool = false,
-        queryTopic: QueryTopic? = nil
+        queryTopic: QueryTopic? = nil,
+        customDate: Date? = nil
     ) -> ParsedEvent {
         ParsedEvent(
             category: category, feedingType: feedingType, amountOz: amountOz, durationMinutes: durationMinutes,
             diaperType: diaperType, temperatureF: temperatureF, medicationName: medicationName, medicationDose: medicationDose,
             weightLbs: weightLbs, heightInches: heightInches,
             notes: notes, isTimerStart: isTimerStart, isTimerStop: isTimerStop, isSleepStart: isSleepStart, isSleepEnd: isSleepEnd,
-            isCorrection: isCorrection, correctionAmount: correctionAmount, foodType: foodType, isQuery: isQuery, queryTopic: queryTopic
+            isCorrection: isCorrection, correctionAmount: correctionAmount, foodType: foodType, isQuery: isQuery, queryTopic: queryTopic,
+            customDate: customDate
         )
     }
 
@@ -422,6 +454,66 @@ struct InputParser {
             let numStr = sub.components(separatedBy: CharacterSet.letters.union(.whitespaces)).joined()
             if let hours = Double(numStr) { return hours * 60 }
         }
+        return nil
+    }
+
+    private static func extractDate(_ input: String) -> (date: Date, cleanedInput: String)? {
+        let calendar = Calendar.current
+        let now = Date()
+
+        let relativePhrases: [(pattern: String, daysAgo: Int)] = [
+            ("the day before yesterday", 2),
+            ("day before yesterday", 2),
+            ("2 days ago", 2),
+            ("two days ago", 2),
+            ("3 days ago", 3),
+            ("three days ago", 3),
+            ("4 days ago", 4),
+            ("four days ago", 4),
+            ("5 days ago", 5),
+            ("five days ago", 5),
+            ("yesterday", 1),
+            ("last night", 1),
+            ("this morning", 0),
+        ]
+
+        for phrase in relativePhrases {
+            if input.contains(phrase.pattern) {
+                let cleaned = input.replacingOccurrences(of: phrase.pattern, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+                if let date = calendar.date(byAdding: .day, value: -phrase.daysAgo, to: calendar.startOfDay(for: now)) {
+                    let targetDate = calendar.date(byAdding: .hour, value: 12, to: date)!
+                    return (targetDate, cleaned)
+                }
+            }
+        }
+
+        let dateFormats = ["M/d/yyyy", "M/d/yy", "M/d", "MM/dd/yyyy", "MM/dd", "MMM d", "MMMM d", "MMM d, yyyy", "MMMM d, yyyy"]
+        for format in dateFormats {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.dateFormat = format
+            let tokens = input.components(separatedBy: .whitespaces)
+            for i in 0..<tokens.count {
+                for length in 1...min(4, tokens.count - i) {
+                    let candidate = tokens[i..<(i+length)].joined(separator: " ")
+                    let cleanCandidate = candidate.trimmingCharacters(in: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "/,")).inverted)
+                    if let parsed = formatter.date(from: cleanCandidate) {
+                        var dateComponents = calendar.dateComponents([.month, .day], from: parsed)
+                        if !format.contains("y") {
+                            dateComponents.year = calendar.component(.year, from: now)
+                        } else {
+                            dateComponents.year = calendar.component(.year, from: parsed)
+                        }
+                        dateComponents.hour = 12
+                        if let finalDate = calendar.date(from: dateComponents), finalDate <= now {
+                            let cleaned = input.replacingOccurrences(of: candidate, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+                            return (finalDate, cleaned)
+                        }
+                    }
+                }
+            }
+        }
+
         return nil
     }
 

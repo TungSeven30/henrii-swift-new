@@ -45,11 +45,22 @@ final class ConversationViewModel {
 
         let event = createEvent(from: parsed)
         event.baby = baby
+        if let customDate = parsed.customDate {
+            event.timestamp = customDate
+        }
         context.insert(event)
+
+        var confirmText = event.summaryText
+        if let customDate = parsed.customDate {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .none
+            confirmText += " (\(formatter.string(from: customDate)))"
+        }
 
         let confirmation = ConversationEntry(
             type: .confirmation,
-            text: event.summaryText,
+            text: confirmText,
             eventID: event.id,
             babyID: baby.id
         )
@@ -312,8 +323,8 @@ final class ConversationViewModel {
                 let latestW = String(format: "%.1f", latest.weightLbs ?? 0)
                 var text = "\(baby.name) is at \(latestW) lbs."
 
-                let whoResult = WHOGrowthData.percentile(weightLbs: latest.weightLbs ?? 0, ageMonths: baby.ageInMonths)
-                text += " That's around the \(ordinal(whoResult.percentile)) percentile (\(whoResult.description)) for age."
+                let whoResult = WHOGrowthData.percentile(weightLbs: latest.weightLbs ?? 0, ageMonths: baby.ageInMonths, gender: baby.gender)
+                text += " That's around the \(ordinal(whoResult.percentile)) percentile (\(whoResult.description)) for \(baby.gender == .boy ? "boys" : "girls") this age."
 
                 if weightEvents.count >= 2 {
                     let prev = weightEvents[weightEvents.count - 2]
@@ -445,8 +456,8 @@ final class ConversationViewModel {
                 var text = "Growth log for \(baby.name):"
                 if let latestW = growthEvents.last(where: { $0.weightLbs != nil }) {
                     text += " Weight: \(String(format: "%.1f", latestW.weightLbs!)) lbs."
-                    let whoResult = WHOGrowthData.percentile(weightLbs: latestW.weightLbs!, ageMonths: baby.ageInMonths)
-                    text += " ~\(ordinal(whoResult.percentile)) percentile for age."
+                    let whoResult = WHOGrowthData.percentile(weightLbs: latestW.weightLbs!, ageMonths: baby.ageInMonths, gender: baby.gender)
+                    text += " ~\(ordinal(whoResult.percentile)) percentile for \(baby.gender == .boy ? "boys" : "girls")."
                 }
                 if let latestH = growthEvents.last(where: { $0.heightInches != nil }) {
                     text += " Height: \(String(format: "%.1f", latestH.heightInches!)) in."

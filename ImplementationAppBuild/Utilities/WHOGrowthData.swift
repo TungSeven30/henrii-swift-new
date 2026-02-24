@@ -46,8 +46,8 @@ enum WHOGrowthData {
         (24, 20.1, 22.4, 25.3, 28.6, 32.0),
     ]
 
-    static func percentile(weightLbs: Double, ageMonths: Int) -> WHOPercentileResult {
-        let data = weightForAgeBoys
+    static func percentile(weightLbs: Double, ageMonths: Int, gender: BabyGender = .boy) -> WHOPercentileResult {
+        let data = gender == .girl ? weightForAgeGirls : weightForAgeBoys
         return calculatePercentile(weightLbs: weightLbs, ageMonths: ageMonths, data: data)
     }
 
