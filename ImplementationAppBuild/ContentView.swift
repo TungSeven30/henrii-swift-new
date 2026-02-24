@@ -31,27 +31,25 @@ struct ContentView: View {
 struct MainAppView: View {
     let baby: Baby
     @Bindable var appVM: AppViewModel
-    @State private var selectedTab: String = "home"
+    @State private var showToday: Bool = false
+    @State private var showInsights: Bool = false
+    @State private var showProfile: Bool = false
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            Tab("Home", systemImage: "message.fill", value: "home") {
-                HomeView(baby: baby)
+        NavigationStack {
+            HomeView(
+                baby: baby,
+                onShowToday: { showToday = true },
+                onShowInsights: { showInsights = true },
+                onShowProfile: { showProfile = true }
+            )
+            .navigationDestination(isPresented: $showToday) {
+                TodayDashboardView(baby: baby)
             }
-
-            Tab("Today", systemImage: "calendar", value: "today") {
-                NavigationStack {
-                    TodayDashboardView(baby: baby)
-                }
+            .navigationDestination(isPresented: $showInsights) {
+                InsightsView(baby: baby)
             }
-
-            Tab("Insights", systemImage: "chart.line.uptrend.xyaxis", value: "insights") {
-                NavigationStack {
-                    InsightsView(baby: baby)
-                }
-            }
-
-            Tab("Profile", systemImage: "person.crop.circle", value: "profile") {
+            .sheet(isPresented: $showProfile) {
                 NavigationStack {
                     BabyProfileView(baby: baby)
                 }

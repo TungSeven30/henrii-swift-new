@@ -3,6 +3,9 @@ import SwiftData
 
 struct HomeView: View {
     let baby: Baby
+    let onShowToday: () -> Void
+    let onShowInsights: () -> Void
+    let onShowProfile: () -> Void
     @Environment(\.modelContext) private var modelContext
     @State private var conversationVM = ConversationViewModel()
     @State private var timerVM = TimerViewModel()
@@ -23,7 +26,13 @@ struct HomeView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                StatusHeaderView(baby: baby, events: babyEvents)
+                StatusHeaderView(
+                    baby: baby,
+                    events: babyEvents,
+                    onTapStatus: onShowToday,
+                    onTapInsights: onShowInsights,
+                    onTapAvatar: onShowProfile
+                )
 
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -82,7 +91,15 @@ struct HomeView: View {
                     timerRunning: timerVM.isRunning
                 ) { text in
                     withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
-                        conversationVM.processInput(text, baby: baby, context: modelContext)
+                        let parsed = InputParser.parse(text)
+                        if let parsed, parsed.isSleepStart {
+                            conversationVM.processInput(text, baby: baby, context: modelContext)
+                            if !timerVM.isRunning {
+                                timerVM.startTimer(category: .sleep)
+                            }
+                        } else {
+                            conversationVM.processInput(text, baby: baby, context: modelContext)
+                        }
                     }
                 }
             }
@@ -118,6 +135,7 @@ struct HomeView: View {
         }
         .sensoryFeedback(.success, trigger: conversationVM.showUndoToast)
         .animation(.spring(duration: 0.35, bounce: 0.2), value: timerVM.isRunning)
+        .navigationBarHidden(true)
     }
 
     private func eventFor(_ entry: ConversationEntry) -> BabyEvent? {

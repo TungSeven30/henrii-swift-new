@@ -27,6 +27,11 @@ final class ConversationViewModel {
             return
         }
 
+        if parsed.isCorrection {
+            handleCorrection(parsed, baby: baby, context: context)
+            return
+        }
+
         if parsed.isSleepEnd {
             handleSleepEnd(baby: baby, context: context)
             return
@@ -96,13 +101,49 @@ final class ConversationViewModel {
         context.delete(event)
     }
 
+    private func handleCorrection(_ parsed: ParsedEvent, baby: Baby, context: ModelContext) {
+        let descriptor = FetchDescriptor<BabyEvent>(
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        guard let recentEvents = try? context.fetch(descriptor),
+              let lastEvent = recentEvents.first(where: { $0.baby?.id == baby.id }) else {
+            let entry = ConversationEntry(type: .system, text: "Nothing to correct yet.", babyID: baby.id)
+            context.insert(entry)
+            return
+        }
+
+        if let newOz = parsed.correctionAmount {
+            let oldText = lastEvent.summaryText
+            lastEvent.amountOz = newOz
+            let confirmation = ConversationEntry(
+                type: .confirmation,
+                text: "Updated: \(lastEvent.summaryText)",
+                eventID: lastEvent.id,
+                babyID: baby.id
+            )
+            context.insert(confirmation)
+
+            let entryDescriptor = FetchDescriptor<ConversationEntry>(
+                sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+            )
+            if let entries = try? context.fetch(entryDescriptor) {
+                for entry in entries {
+                    if entry.eventID == lastEvent.id && entry.type == .confirmation && entry.text == oldText {
+                        context.delete(entry)
+                        break
+                    }
+                }
+            }
+        }
+    }
+
     private func handleSleepEnd(baby: Baby, context: ModelContext) {
         let descriptor = FetchDescriptor<BabyEvent>(
             predicate: #Predicate { $0.endTime == nil },
             sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
         )
         if let events = try? context.fetch(descriptor),
-           let sleepEvent = events.first(where: { $0.category == .sleep }) {
+           let sleepEvent = events.first(where: { $0.category == .sleep && $0.baby?.id == baby.id }) {
             sleepEvent.endTime = Date()
             let duration = Date().timeIntervalSince(sleepEvent.timestamp) / 60
             sleepEvent.durationMinutes = duration
@@ -141,6 +182,8 @@ final class ConversationViewModel {
         event.temperatureF = parsed.temperatureF
         event.medicationName = parsed.medicationName
         event.medicationDose = parsed.medicationDose
+        event.weightLbs = parsed.weightLbs
+        event.heightInches = parsed.heightInches
         if parsed.category == .note || parsed.category == .activity {
             event.notes = parsed.notes
         }
@@ -215,7 +258,7 @@ final class ConversationViewModel {
         }
 
         if event.category == .health, let temp = event.temperatureF, temp >= 100.4 {
-            let alert = ConversationEntry(type: .insight, text: "⚠️ Temperature is \(String(format: "%.1f", temp))°F — that's above normal. Keep monitoring and contact your pediatrician if it persists.", babyID: baby.id)
+            let alert = ConversationEntry(type: .insight, text: "\u{26A0}\u{FE0F} Temperature is \(String(format: "%.1f", temp))\u{00B0}F — that's above normal. Keep monitoring and contact your pediatrician if it persists.", babyID: baby.id)
             context.insert(alert)
         }
     }
@@ -241,16 +284,12 @@ final class ConversationViewModel {
         }
 
         if event.category == .diaper {
-            let feedsSinceDiaper = todayEvents
-                .filter { $0.category == .feeding && $0.timestamp > event.timestamp }
-            if feedsSinceDiaper.isEmpty {
-                let lastFeed = todayEvents.filter { $0.category == .feeding }.max(by: { $0.timestamp < $1.timestamp })
-                if let lastFeed {
-                    let hoursSinceFeed = Date().timeIntervalSince(lastFeed.timestamp) / 3600
-                    if hoursSinceFeed > 3 {
-                        let nudge = ConversationEntry(type: .nudge, text: "It's been \(Int(hoursSinceFeed)) hours since the last feed. \(baby.name) might be getting hungry.", babyID: baby.id)
-                        context.insert(nudge)
-                    }
+            let lastFeed = todayEvents.filter { $0.category == .feeding }.max(by: { $0.timestamp < $1.timestamp })
+            if let lastFeed {
+                let hoursSinceFeed = Date().timeIntervalSince(lastFeed.timestamp) / 3600
+                if hoursSinceFeed > 3 {
+                    let nudge = ConversationEntry(type: .nudge, text: "It's been \(Int(hoursSinceFeed)) hours since the last feed. \(baby.name) might be getting hungry.", babyID: baby.id)
+                    context.insert(nudge)
                 }
             }
         }

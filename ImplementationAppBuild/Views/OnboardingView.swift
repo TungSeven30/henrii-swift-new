@@ -155,7 +155,8 @@ struct OnboardingView: View {
 
                 let welcome = ConversationEntry(
                     type: .system,
-                    text: "Welcome! I'm ready to help you track \(baby.name)'s day. Just tell me what's happening \u{2014} \"fed 4oz\", \"diaper change\", \"nap time\" \u{2014} and I'll take care of the rest."
+                    text: "Welcome! I'm ready to help you track \(baby.name)'s day. Just tell me what's happening \u{2014} \"fed 4oz\", \"diaper change\", \"nap time\" \u{2014} and I'll take care of the rest.",
+                    babyID: baby.id
                 )
                 modelContext.insert(welcome)
 

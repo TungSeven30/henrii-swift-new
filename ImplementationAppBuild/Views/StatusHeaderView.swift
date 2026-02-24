@@ -3,18 +3,33 @@ import SwiftUI
 struct StatusHeaderView: View {
     let baby: Baby
     let events: [BabyEvent]
-    @State private var showSettings: Bool = false
+    let onTapStatus: () -> Void
+    let onTapInsights: () -> Void
+    let onTapAvatar: () -> Void
 
     var body: some View {
         VStack(spacing: HenriiSpacing.xs) {
             HStack(spacing: HenriiSpacing.lg) {
-                statusPill(icon: "cup.and.saucer.fill", time: timeSince(.feeding), color: HenriiColors.dataFeeding)
-                statusPill(icon: "moon.fill", time: timeSince(.sleep), color: HenriiColors.dataSleep)
-                statusPill(icon: "leaf.fill", time: timeSince(.diaper), color: HenriiColors.dataDiaper)
+                Button { onTapStatus() } label: {
+                    HStack(spacing: HenriiSpacing.lg) {
+                        statusPill(icon: "cup.and.saucer.fill", time: timeSince(.feeding), color: HenriiColors.dataFeeding)
+                        statusPill(icon: "moon.fill", time: timeSince(.sleep), color: HenriiColors.dataSleep)
+                        statusPill(icon: "leaf.fill", time: timeSince(.diaper), color: HenriiColors.dataDiaper)
+                    }
+                }
 
                 Spacer()
 
-                Button { showSettings = true } label: {
+                Button { onTapInsights() } label: {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.callout)
+                        .foregroundStyle(HenriiColors.textSecondary)
+                        .frame(width: 36, height: 36)
+                        .background(HenriiColors.canvasElevated)
+                        .clipShape(Circle())
+                }
+
+                Button { onTapAvatar() } label: {
                     Circle()
                         .fill(HenriiColors.accentPrimary.opacity(0.15))
                         .frame(width: 36, height: 36)
@@ -29,9 +44,6 @@ struct StatusHeaderView: View {
             .padding(.vertical, HenriiSpacing.sm)
         }
         .background(.ultraThinMaterial)
-        .sheet(isPresented: $showSettings) {
-            SettingsView(baby: baby)
-        }
     }
 
     private func statusPill(icon: String, time: String, color: Color) -> some View {

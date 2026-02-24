@@ -172,7 +172,7 @@ final class BabyEvent {
         case .wet: return "Wet diaper"
         case .dirty: return "Dirty diaper"
         case .both: return "Wet + dirty diaper"
-        case .none: return "Diaper change"
+        case nil: return "Diaper change"
         }
     }
 
