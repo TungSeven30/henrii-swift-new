@@ -12,6 +12,7 @@ struct HomeView: View {
     @Environment(\.henriiReduceMotion) private var reduceMotion
     @State private var conversationVM = ConversationViewModel()
     @State private var timerVM = TimerViewModel()
+    @State private var handoffService = HandoffService()
     @State private var showSearch: Bool = false
     @State private var showGrowthSheet: Bool = false
     @State private var showCustomBottleAlert: Bool = false
@@ -19,6 +20,7 @@ struct HomeView: View {
     @State private var selectedBabyIDs: Set<UUID> = []
     @State private var showCalendarStrip: Bool = false
     @State private var filterDate: Date? = nil
+    @State private var milestoneEventToEdit: BabyEvent?
     @GestureState private var pinchScale: CGFloat = 1.0
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Query(sort: \ConversationEntry.timestamp, order: .reverse) private var allEntries: [ConversationEntry]
@@ -100,6 +102,9 @@ struct HomeView: View {
                                         withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.3)) {
                                             conversationVM.dismissMedicalFlag(entry)
                                         }
+                                    },
+                                    onEditMilestone: { event in
+                                        milestoneEventToEdit = event
                                     }
                                 )
                                 .id(entry.id)
@@ -123,6 +128,7 @@ struct HomeView: View {
                             selectedBabyIDs = [baby.id]
                         }
                         scheduleDailySummaryIfNeeded()
+                        handoffService.checkForHandoff(baby: baby, context: modelContext)
                     }
                 }
             }
@@ -211,6 +217,9 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showGrowthSheet) {
             GrowthLogSheet(baby: baby)
+        }
+        .sheet(item: $milestoneEventToEdit) { event in
+            MilestoneDetailSheet(event: event)
         }
         .alert("Custom Amount", isPresented: $showCustomBottleAlert) {
             TextField("Ounces", text: $customBottleText)

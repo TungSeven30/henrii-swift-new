@@ -7,6 +7,7 @@ struct ConversationBubbleView: View {
     let onDelete: () -> Void
     var onDismissMedical: (() -> Void)?
     var onExpandGroup: (() -> Void)?
+    var onEditMilestone: ((BabyEvent) -> Void)?
     @State private var isGroupExpanded: Bool = false
 
     private var pedButtonLabel: String {
@@ -19,7 +20,11 @@ struct ConversationBubbleView: View {
             case .userMessage:
                 userBubble
             case .confirmation:
-                confirmationCard
+                if event?.category == .milestone {
+                    milestoneCard
+                } else {
+                    confirmationCard
+                }
             case .insight:
                 insightCard
             case .nudge:
@@ -38,6 +43,8 @@ struct ConversationBubbleView: View {
                 dailySummaryCard
             case .collapsedGroup:
                 collapsedGroupCard
+            case .handoffSummary:
+                handoffSummaryCard
             }
         }
     }
@@ -85,6 +92,89 @@ struct ConversationBubbleView: View {
         }
         .padding(HenriiSpacing.lg)
         .background(HenriiColors.canvasElevated)
+        .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+        .contextMenu {
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+
+    private var milestoneCard: some View {
+        VStack(alignment: .leading, spacing: HenriiSpacing.md) {
+            HStack(spacing: HenriiSpacing.md) {
+                Circle()
+                    .fill(HenriiColors.dataGrowth.opacity(0.15))
+                    .frame(width: 36, height: 36)
+                    .overlay {
+                        Image(systemName: "star.fill")
+                            .font(.callout)
+                            .foregroundStyle(HenriiColors.dataGrowth)
+                    }
+
+                VStack(alignment: .leading, spacing: HenriiSpacing.xs) {
+                    Text(entry.text)
+                        .font(.henriiHeadline)
+                        .foregroundStyle(HenriiColors.textPrimary)
+                    Text(entry.timestamp, style: .time)
+                        .font(.henriiCaption)
+                        .foregroundStyle(HenriiColors.textTertiary)
+                }
+
+                Spacer()
+
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(HenriiColors.dataGrowth)
+                    .font(.title3)
+            }
+
+            if let event, let photoData = event.milestonePhotoData, let uiImage = UIImage(data: photoData) {
+                Color(.secondarySystemBackground)
+                    .frame(height: 160)
+                    .overlay {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .allowsHitTesting(false)
+                    }
+                    .clipShape(.rect(cornerRadius: HenriiRadius.small))
+            }
+
+            if let event, let ctx = event.milestoneContext, !ctx.isEmpty {
+                Text(ctx)
+                    .font(.henriiCallout)
+                    .foregroundStyle(HenriiColors.textSecondary)
+                    .italic()
+            }
+
+            if let event {
+                Button {
+                    onEditMilestone?(event)
+                } label: {
+                    HStack(spacing: HenriiSpacing.xs) {
+                        Image(systemName: event.milestonePhotoData != nil ? "pencil" : "photo.badge.plus")
+                            .font(.caption)
+                        Text(event.milestonePhotoData != nil ? "Edit Details" : "Add Photo & Context")
+                            .font(.henriiCaption)
+                    }
+                    .foregroundStyle(HenriiColors.accentPrimary)
+                    .padding(.horizontal, HenriiSpacing.md)
+                    .frame(height: 32)
+                    .background(HenriiColors.accentPrimary.opacity(0.1))
+                    .clipShape(Capsule())
+                }
+            }
+        }
+        .padding(HenriiSpacing.lg)
+        .background(
+            LinearGradient(
+                colors: [HenriiColors.dataGrowth.opacity(0.08), HenriiColors.canvasElevated],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .clipShape(.rect(cornerRadius: HenriiRadius.medium))
         .contextMenu {
             Button(role: .destructive) {
@@ -428,6 +518,88 @@ struct ConversationBubbleView: View {
         case "health": return "heart.text.clipboard.fill"
         default: return "chart.bar.fill"
         }
+    }
+
+    private var handoffSummaryCard: some View {
+        VStack(alignment: .leading, spacing: HenriiSpacing.md) {
+            HStack(spacing: HenriiSpacing.sm) {
+                Image(systemName: "arrow.right.arrow.left.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(HenriiColors.accentSecondary)
+
+                Text("Handoff Summary")
+                    .font(.henriiHeadline)
+                    .foregroundStyle(HenriiColors.textPrimary)
+
+                Spacer()
+
+                Text(entry.timestamp, style: .time)
+                    .font(.henriiCaption)
+                    .foregroundStyle(HenriiColors.textTertiary)
+            }
+
+            Text(entry.text)
+                .font(.henriiCallout)
+                .foregroundStyle(HenriiColors.textSecondary)
+
+            HStack(spacing: HenriiSpacing.lg) {
+                handoffStatPill(
+                    icon: "drop.fill",
+                    value: "\(entry.handoffFeedCount)",
+                    label: "feeds",
+                    color: HenriiColors.dataFeeding
+                )
+                if entry.handoffSleepMinutes > 0 {
+                    let hrs = Int(entry.handoffSleepMinutes) / 60
+                    let mins = Int(entry.handoffSleepMinutes) % 60
+                    let sleepLabel = hrs > 0 ? "\(hrs)h \(mins)m" : "\(mins)m"
+                    handoffStatPill(
+                        icon: "moon.fill",
+                        value: sleepLabel,
+                        label: "sleep",
+                        color: HenriiColors.dataSleep
+                    )
+                }
+                handoffStatPill(
+                    icon: "leaf.fill",
+                    value: "\(entry.handoffDiaperCount)",
+                    label: "diapers",
+                    color: HenriiColors.dataDiaper
+                )
+            }
+        }
+        .padding(HenriiSpacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(
+                colors: [HenriiColors.accentSecondary.opacity(0.1), HenriiColors.accentSecondary.opacity(0.03)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+        .overlay(
+            RoundedRectangle(cornerRadius: HenriiRadius.medium)
+                .strokeBorder(HenriiColors.accentSecondary.opacity(0.15), lineWidth: 1)
+        )
+    }
+
+    private func handoffStatPill(icon: String, value: String, label: String, color: Color) -> some View {
+        HStack(spacing: HenriiSpacing.xs) {
+            Image(systemName: icon)
+                .font(.system(size: 10))
+                .foregroundStyle(color)
+            Text(value)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(HenriiColors.textPrimary)
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundStyle(HenriiColors.textTertiary)
+        }
+        .padding(.horizontal, HenriiSpacing.md)
+        .padding(.vertical, HenriiSpacing.xs)
+        .background(color.opacity(0.08))
+        .clipShape(Capsule())
     }
 
     private var daySeparator: some View {

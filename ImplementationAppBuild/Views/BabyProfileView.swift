@@ -14,6 +14,8 @@ struct BabyProfileView: View {
     @State private var showExportSheet: Bool = false
     @State private var exportCSV: String = ""
     @State private var showHandoff: Bool = false
+    @State private var showAddVaccination: Bool = false
+    @State private var editingVaccination: Vaccination?
 
     private var babyEvents: [BabyEvent] {
         allEvents.filter { $0.baby?.id == baby.id }
@@ -29,6 +31,7 @@ struct BabyProfileView: View {
                 profileHeader
                 vitalStatsSection
                 recentGrowthSection
+                vaccinationsSection
                 quickActionsSection
             }
             .padding(.horizontal, HenriiSpacing.horizontalMargin(for: sizeClass))
@@ -54,6 +57,12 @@ struct BabyProfileView: View {
             NavigationStack {
                 HandoffSummaryView(baby: baby, events: babyEvents)
             }
+        }
+        .sheet(isPresented: $showAddVaccination) {
+            AddVaccinationView(baby: baby)
+        }
+        .sheet(item: $editingVaccination) { vax in
+            AddVaccinationView(baby: baby, vaccination: vax)
         }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -236,6 +245,87 @@ struct BabyProfileView: View {
         .padding(HenriiSpacing.lg)
         .background(HenriiColors.canvasElevated)
         .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+    }
+
+    private var vaccinationsSection: some View {
+        VStack(alignment: .leading, spacing: HenriiSpacing.md) {
+            HStack {
+                Text("Vaccinations")
+                    .font(.henriiHeadline)
+                    .foregroundStyle(HenriiColors.textPrimary)
+                Spacer()
+                Button { showAddVaccination = true } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(HenriiColors.accentPrimary)
+                }
+            }
+
+            if baby.vaccinations.isEmpty {
+                HStack {
+                    Image(systemName: "syringe.fill")
+                        .foregroundStyle(HenriiColors.accentSecondary)
+                    Text("No vaccinations recorded yet. Tap + to add one.")
+                        .font(.henriiCallout)
+                        .foregroundStyle(HenriiColors.textSecondary)
+                }
+                .padding(HenriiSpacing.lg)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(HenriiColors.canvasElevated)
+                .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+            } else {
+                let sorted = baby.vaccinations.sorted { $0.date > $1.date }
+                ForEach(sorted) { vax in
+                    Button {
+                        editingVaccination = vax
+                    } label: {
+                        HStack(spacing: HenriiSpacing.md) {
+                            Circle()
+                                .fill(HenriiColors.accentSecondary.opacity(0.12))
+                                .frame(width: 36, height: 36)
+                                .overlay {
+                                    Image(systemName: "syringe.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(HenriiColors.accentSecondary)
+                                }
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(vax.name)
+                                    .font(.henriiCallout)
+                                    .foregroundStyle(HenriiColors.textPrimary)
+                                HStack(spacing: HenriiSpacing.xs) {
+                                    Text(vax.date, format: .dateTime.month(.abbreviated).day().year())
+                                        .font(.henriiCaption)
+                                        .foregroundStyle(HenriiColors.textTertiary)
+                                    if let notes = vax.notes, !notes.isEmpty {
+                                        Text("\u{2022} \(notes)")
+                                            .font(.henriiCaption)
+                                            .foregroundStyle(HenriiColors.textTertiary)
+                                            .lineLimit(1)
+                                    }
+                                }
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(HenriiColors.textTertiary)
+                        }
+                        .padding(HenriiSpacing.lg)
+                        .background(HenriiColors.canvasElevated)
+                        .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+                    }
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            modelContext.delete(vax)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private func generateAndShowExport() {

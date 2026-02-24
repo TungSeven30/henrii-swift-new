@@ -7,6 +7,7 @@ struct ComposerView: View {
     @FocusState private var isFocused: Bool
     @State private var speechService = SpeechService()
     @State private var isHoldingMic: Bool = false
+    @Environment(\.henriiReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: HenriiSpacing.md) {
@@ -27,7 +28,7 @@ struct ComposerView: View {
                             Image(systemName: "mic.fill")
                                 .font(.title3)
                                 .foregroundStyle(.red)
-                                .symbolEffect(.pulse, options: .repeating, isActive: true)
+                                .symbolEffect(.pulse, options: .repeating, isActive: !reduceMotion)
                         }
                         .frame(width: 56, height: 56)
                     }
@@ -69,7 +70,7 @@ struct ComposerView: View {
                 .font(.title3)
                 .foregroundStyle(HenriiColors.accentPrimary)
                 .scaleEffect(isHoldingMic ? 1.15 : 1.0)
-                .animation(.spring(duration: 0.2), value: isHoldingMic)
+                .animation(reduceMotion ? .easeInOut(duration: 0.1) : .spring(duration: 0.2), value: isHoldingMic)
         }
         .frame(width: 56, height: 56)
         .onTapGesture {

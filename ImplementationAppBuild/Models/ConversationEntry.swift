@@ -13,6 +13,7 @@ nonisolated enum EntryType: String, Codable, Sendable {
     case medicalFlag
     case dailySummary
     case collapsedGroup
+    case handoffSummary
 }
 
 @Model
@@ -31,6 +32,10 @@ final class ConversationEntry {
     var summaryFeedCount: Int
     var summarySleepHours: Double
     var summaryDiaperCount: Int
+    var handoffFeedCount: Int
+    var handoffSleepMinutes: Double
+    var handoffDiaperCount: Int
+    var handoffCaregiver: String?
 
     init(type: EntryType, text: String, timestamp: Date = Date(), eventID: UUID? = nil, babyID: UUID? = nil, chartData: String? = nil, queryTopicRaw: String? = nil) {
         self.id = UUID()
@@ -47,5 +52,9 @@ final class ConversationEntry {
         self.summaryFeedCount = 0
         self.summarySleepHours = 0
         self.summaryDiaperCount = 0
+        self.handoffFeedCount = 0
+        self.handoffSleepMinutes = 0
+        self.handoffDiaperCount = 0
+        self.handoffCaregiver = nil
     }
 }
