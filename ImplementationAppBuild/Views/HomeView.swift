@@ -89,7 +89,6 @@ struct HomeView: View {
                 ContextChipsView(baby: baby, events: babyEvents) { action in
                     handleChipAction(action)
                 }
-                .padding(.horizontal, HenriiSpacing.margin)
 
                 ComposerView(
                     text: $conversationVM.composerText,
