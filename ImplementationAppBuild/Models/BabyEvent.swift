@@ -94,7 +94,13 @@ final class BabyEvent {
             case .none: return "drop.fill"
             }
         case .sleep: return "moon.fill"
-        case .diaper: return "leaf.fill"
+        case .diaper:
+            switch diaperType {
+            case .wet: return "drop.fill"
+            case .dirty: return "leaf.fill"
+            case .both: return "humidity.fill"
+            case nil: return "leaf.fill"
+            }
         case .growth: return "ruler.fill"
         case .health: return "heart.text.clipboard.fill"
         case .milestone: return "star.fill"

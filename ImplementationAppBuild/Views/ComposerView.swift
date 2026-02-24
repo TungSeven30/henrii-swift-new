@@ -73,17 +73,26 @@ struct ComposerView: View {
                 .animation(reduceMotion ? .easeInOut(duration: 0.1) : .spring(duration: 0.2), value: isHoldingMic)
         }
         .frame(width: 56, height: 56)
-        .onTapGesture {
-            startListening()
-        }
-        .onLongPressGesture(minimumDuration: 0.3, pressing: { pressing in
-            isHoldingMic = pressing
-            if pressing {
-                startListening()
-            } else if speechService.isListening {
-                stopListening()
-            }
-        }, perform: {})
+        .contentShape(Circle())
+        .gesture(
+            LongPressGesture(minimumDuration: 0.3)
+                .onChanged { _ in
+                    isHoldingMic = true
+                    startListening()
+                }
+                .onEnded { _ in
+                    isHoldingMic = false
+                    if speechService.isListening {
+                        stopListening()
+                    }
+                }
+        )
+        .simultaneousGesture(
+            TapGesture()
+                .onEnded {
+                    startListening()
+                }
+        )
         .sensoryFeedback(.impact(weight: .medium), trigger: isHoldingMic)
     }
 
