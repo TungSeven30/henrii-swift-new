@@ -50,5 +50,10 @@ final class SettingsManager {
         set { UserDefaults.standard.set(newValue, forKey: "medicationNotifications") }
     }
 
+    var pediatricianPhone: String {
+        get { UserDefaults.standard.string(forKey: "pediatricianPhone") ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: "pediatricianPhone") }
+    }
+
     private init() {}
 }

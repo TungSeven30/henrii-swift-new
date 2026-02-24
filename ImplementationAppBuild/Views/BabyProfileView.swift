@@ -7,11 +7,13 @@ struct BabyProfileView: View {
     @Query(sort: \BabyEvent.timestamp, order: .reverse) private var allEvents: [BabyEvent]
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var showSettings: Bool = false
     @State private var showAddBaby: Bool = false
     @State private var showReport: Bool = false
     @State private var showExportSheet: Bool = false
     @State private var exportCSV: String = ""
+    @State private var showHandoff: Bool = false
 
     private var babyEvents: [BabyEvent] {
         allEvents.filter { $0.baby?.id == baby.id }
@@ -29,7 +31,7 @@ struct BabyProfileView: View {
                 recentGrowthSection
                 quickActionsSection
             }
-            .padding(.horizontal, HenriiSpacing.margin)
+            .padding(.horizontal, HenriiSpacing.horizontalMargin(for: sizeClass))
             .padding(.top, HenriiSpacing.lg)
             .padding(.bottom, 100)
         }
@@ -47,6 +49,11 @@ struct BabyProfileView: View {
         }
         .sheet(isPresented: $showExportSheet) {
             ExportShareView(csv: exportCSV, babyName: baby.name)
+        }
+        .sheet(isPresented: $showHandoff) {
+            NavigationStack {
+                HandoffSummaryView(baby: baby, events: babyEvents)
+            }
         }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -202,6 +209,10 @@ struct BabyProfileView: View {
 
             Button { generateAndShowExport() } label: {
                 actionRow(icon: "square.and.arrow.up", title: "Export Data")
+            }
+
+            Button { showHandoff = true } label: {
+                actionRow(icon: "arrow.right.arrow.left", title: "Handoff Summary")
             }
 
             Button { showAddBaby = true } label: {

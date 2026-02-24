@@ -16,6 +16,7 @@ nonisolated struct ParsedEvent: Sendable {
     let amountOz: Double?
     let durationMinutes: Double?
     let diaperType: DiaperType?
+    let diaperColor: String?
     let temperatureF: Double?
     let medicationName: String?
     let medicationDose: String?
@@ -69,7 +70,8 @@ struct InputParser {
         guard isMulti else { return event }
         return ParsedEvent(
             category: event.category, feedingType: event.feedingType, amountOz: event.amountOz,
-            durationMinutes: event.durationMinutes, diaperType: event.diaperType, temperatureF: event.temperatureF,
+            durationMinutes: event.durationMinutes, diaperType: event.diaperType, diaperColor: event.diaperColor,
+            temperatureF: event.temperatureF,
             medicationName: event.medicationName, medicationDose: event.medicationDose,
             weightLbs: event.weightLbs, heightInches: event.heightInches,
             notes: event.notes, isTimerStart: event.isTimerStart, isTimerStop: event.isTimerStop,
@@ -84,7 +86,8 @@ struct InputParser {
         guard let date else { return event }
         return ParsedEvent(
             category: event.category, feedingType: event.feedingType, amountOz: event.amountOz,
-            durationMinutes: event.durationMinutes, diaperType: event.diaperType, temperatureF: event.temperatureF,
+            durationMinutes: event.durationMinutes, diaperType: event.diaperType, diaperColor: event.diaperColor,
+            temperatureF: event.temperatureF,
             medicationName: event.medicationName, medicationDose: event.medicationDose,
             weightLbs: event.weightLbs, heightInches: event.heightInches,
             notes: event.notes, isTimerStart: event.isTimerStart, isTimerStop: event.isTimerStop,
@@ -120,7 +123,7 @@ struct InputParser {
 
         return ParsedEvent(
             category: .note, feedingType: nil, amountOz: nil, durationMinutes: nil,
-            diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
+            diaperType: nil, diaperColor: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
             isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: true, queryTopic: topic,
@@ -146,7 +149,7 @@ struct InputParser {
 
         return ParsedEvent(
             category: .feeding, feedingType: nil, amountOz: amount, durationMinutes: nil,
-            diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
+            diaperType: nil, diaperColor: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
             isCorrection: true, correctionAmount: amount, foodType: nil, isQuery: false, queryTopic: nil,
@@ -194,7 +197,7 @@ struct InputParser {
 
         return ParsedEvent(
             category: .feeding, feedingType: feedType, amountOz: amount, durationMinutes: duration,
-            diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
+            diaperType: nil, diaperColor: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
             isCorrection: false, correctionAmount: nil, foodType: foodType, isQuery: false, queryTopic: nil,
@@ -213,7 +216,7 @@ struct InputParser {
         if sleepStartPatterns.contains(where: { input.contains($0) }) || input == "sleep" {
             return ParsedEvent(
                 category: .sleep, feedingType: nil, amountOz: nil, durationMinutes: extractMinutes(input),
-                diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
+                diaperType: nil, diaperColor: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
                 weightLbs: nil, heightInches: nil,
                 notes: nil, isTimerStart: true, isTimerStop: false, isSleepStart: true, isSleepEnd: false,
                 isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
@@ -242,20 +245,21 @@ struct InputParser {
             dType = .wet
         }
 
-        var notes: String?
+        var detectedColor: String?
         let colors = ["green", "yellow", "brown", "black", "tarry", "mucus", "blood", "red"]
         for color in colors {
             if input.contains(color) {
-                notes = "Color: \(color)"
+                detectedColor = color
                 break
             }
         }
 
         return ParsedEvent(
             category: .diaper, feedingType: nil, amountOz: nil, durationMinutes: nil,
-            diaperType: dType, temperatureF: nil, medicationName: nil, medicationDose: nil,
+            diaperType: dType, diaperColor: detectedColor,
+            temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
-            notes: notes, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
+            notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
             isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
             customDate: nil, isMultiChild: false
         )
@@ -295,7 +299,7 @@ struct InputParser {
 
         return ParsedEvent(
             category: .health, feedingType: nil, amountOz: nil, durationMinutes: nil,
-            diaperType: nil, temperatureF: temp, medicationName: medName, medicationDose: medDose,
+            diaperType: nil, diaperColor: nil, temperatureF: temp, medicationName: medName, medicationDose: medDose,
             weightLbs: nil, heightInches: nil,
             notes: symptomNotes, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
             isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
@@ -307,7 +311,7 @@ struct InputParser {
         guard input.contains("pump") else { return nil }
         return ParsedEvent(
             category: .pumping, feedingType: nil, amountOz: extractOunces(input), durationMinutes: extractMinutes(input),
-            diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
+            diaperType: nil, diaperColor: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
             isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
@@ -355,7 +359,7 @@ struct InputParser {
 
         return ParsedEvent(
             category: .growth, feedingType: nil, amountOz: nil, durationMinutes: nil,
-            diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
+            diaperType: nil, diaperColor: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: weight, heightInches: height,
             notes: nil, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
             isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
@@ -390,7 +394,7 @@ struct InputParser {
                 }
                 return ParsedEvent(
                     category: .activity, feedingType: nil, amountOz: nil, durationMinutes: duration,
-                    diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
+                    diaperType: nil, diaperColor: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
                     weightLbs: nil, heightInches: nil,
                     notes: notes, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
                     isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
@@ -407,7 +411,7 @@ struct InputParser {
 
         return ParsedEvent(
             category: .milestone, feedingType: nil, amountOz: nil, durationMinutes: nil,
-            diaperType: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
+            diaperType: nil, diaperColor: nil, temperatureF: nil, medicationName: nil, medicationDose: nil,
             weightLbs: nil, heightInches: nil,
             notes: raw, isTimerStart: false, isTimerStop: false, isSleepStart: false, isSleepEnd: false,
             isCorrection: false, correctionAmount: nil, foodType: nil, isQuery: false, queryTopic: nil,
@@ -440,7 +444,7 @@ struct InputParser {
     ) -> ParsedEvent {
         ParsedEvent(
             category: category, feedingType: feedingType, amountOz: amountOz, durationMinutes: durationMinutes,
-            diaperType: diaperType, temperatureF: temperatureF, medicationName: medicationName, medicationDose: medicationDose,
+            diaperType: diaperType, diaperColor: nil, temperatureF: temperatureF, medicationName: medicationName, medicationDose: medicationDose,
             weightLbs: weightLbs, heightInches: heightInches,
             notes: notes, isTimerStart: isTimerStart, isTimerStop: isTimerStop, isSleepStart: isSleepStart, isSleepEnd: isSleepEnd,
             isCorrection: isCorrection, correctionAmount: correctionAmount, foodType: foodType, isQuery: isQuery, queryTopic: queryTopic,

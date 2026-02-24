@@ -20,6 +20,7 @@ struct HomeView: View {
     @State private var showCalendarStrip: Bool = false
     @State private var filterDate: Date? = nil
     @GestureState private var pinchScale: CGFloat = 1.0
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @Query(sort: \ConversationEntry.timestamp, order: .reverse) private var allEntries: [ConversationEntry]
     @Query(sort: \BabyEvent.timestamp, order: .reverse) private var allEvents: [BabyEvent]
 
@@ -96,7 +97,7 @@ struct HomeView: View {
                                         }
                                     },
                                     onDismissMedical: {
-                                        withAnimation(.spring(duration: 0.3)) {
+                                        withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.3)) {
                                             conversationVM.dismissMedicalFlag(entry)
                                         }
                                     }
@@ -108,7 +109,7 @@ struct HomeView: View {
                                 ))
                             }
                         }
-                        .padding(.horizontal, HenriiSpacing.margin)
+                        .padding(.horizontal, HenriiSpacing.horizontalMargin(for: sizeClass))
                         .padding(.top, HenriiSpacing.md)
                         .padding(.bottom, timerVM.isRunning ? 220 : 160)
                     }
@@ -121,6 +122,7 @@ struct HomeView: View {
                         if selectedBabyIDs.isEmpty {
                             selectedBabyIDs = [baby.id]
                         }
+                        scheduleDailySummaryIfNeeded()
                     }
                 }
             }
@@ -133,7 +135,7 @@ struct HomeView: View {
                         handleTimerStop(result)
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .padding(.horizontal, HenriiSpacing.margin)
+                    .padding(.horizontal, HenriiSpacing.horizontalMargin(for: sizeClass))
                 }
 
                 if hasMultipleBabies {
@@ -152,7 +154,7 @@ struct HomeView: View {
                     text: $conversationVM.composerText,
                     timerRunning: timerVM.isRunning
                 ) { text in
-                    withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
+                    withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.35, bounce: 0.2)) {
                         handleComposerInput(text)
                     }
                 }
@@ -189,7 +191,7 @@ struct HomeView: View {
         }
         .sensoryFeedback(.success, trigger: conversationVM.showUndoToast)
         .animation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.35, bounce: 0.2), value: timerVM.isRunning)
-        .animation(.spring(duration: 0.25), value: showCalendarStrip)
+        .animation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.25), value: showCalendarStrip)
         .toolbar(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -215,7 +217,7 @@ struct HomeView: View {
                 .keyboardType(.decimalPad)
             Button("Log") {
                 if let oz = Double(customBottleText), oz > 0 {
-                    withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
+                    withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.35, bounce: 0.2)) {
                         conversationVM.quickLog(category: .feeding, baby: baby, context: modelContext, feedingType: .bottle, amountOz: oz)
                     }
                 }
@@ -252,7 +254,7 @@ struct HomeView: View {
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
         if let last = entries.last {
-            withAnimation(.spring(duration: 0.3)) {
+            withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.3)) {
                 proxy.scrollTo(last.id, anchor: .bottom)
             }
         }
@@ -333,13 +335,13 @@ struct HomeView: View {
         case .startSleep:
             timerVM.startTimer(category: .sleep)
         case .logDiaper(let type):
-            withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
+            withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.35, bounce: 0.2)) {
                 logForSelectedBabies { targetBaby in
                     conversationVM.quickLog(category: .diaper, baby: targetBaby, context: modelContext, diaperType: type)
                 }
             }
         case .logBottle(let oz):
-            withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
+            withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.35, bounce: 0.2)) {
                 logForSelectedBabies { targetBaby in
                     conversationVM.quickLog(category: .feeding, baby: targetBaby, context: modelContext, feedingType: .bottle, amountOz: oz)
                 }
@@ -350,13 +352,13 @@ struct HomeView: View {
         case .logGrowth:
             showGrowthSheet = true
         case .logBurp:
-            withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
+            withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.35, bounce: 0.2)) {
                 logForSelectedBabies { targetBaby in
                     conversationVM.quickLog(category: .note, baby: targetBaby, context: modelContext, notes: "Burp")
                 }
             }
         case .logSpitUp:
-            withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
+            withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.35, bounce: 0.2)) {
                 logForSelectedBabies { targetBaby in
                     conversationVM.quickLog(category: .note, baby: targetBaby, context: modelContext, notes: "Spit-up")
                 }
@@ -390,5 +392,11 @@ struct HomeView: View {
             babyID: baby.id
         )
         modelContext.insert(confirmation)
+    }
+
+    private func scheduleDailySummaryIfNeeded() {
+        let hour = Calendar.current.component(.hour, from: Date())
+        guard hour >= 18 else { return }
+        conversationVM.generateDailySummary(baby: baby, context: modelContext)
     }
 }

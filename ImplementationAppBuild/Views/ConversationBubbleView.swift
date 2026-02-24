@@ -9,6 +9,10 @@ struct ConversationBubbleView: View {
     var onExpandGroup: (() -> Void)?
     @State private var isGroupExpanded: Bool = false
 
+    private var pedButtonLabel: String {
+        SettingsManager.shared.pediatricianPhone.isEmpty ? "Add Pediatrician #" : "Call Pediatrician"
+    }
+
     var body: some View {
         Group {
             switch entry.type {
@@ -177,11 +181,13 @@ struct ConversationBubbleView: View {
 
             HStack(spacing: HenriiSpacing.md) {
                 Button {
-                    if let url = URL(string: "tel://") {
+                    let phone = SettingsManager.shared.pediatricianPhone
+                    let cleaned = phone.filter { $0.isNumber || $0 == "+" }
+                    if !cleaned.isEmpty, let url = URL(string: "tel://\(cleaned)") {
                         UIApplication.shared.open(url)
                     }
                 } label: {
-                    Label("Call Pediatrician", systemImage: "phone.fill")
+                    Label(pedButtonLabel, systemImage: "phone.fill")
                         .font(.henriiCallout)
                         .foregroundStyle(.white)
                         .padding(.horizontal, HenriiSpacing.lg)
@@ -189,6 +195,7 @@ struct ConversationBubbleView: View {
                         .background(HenriiColors.semanticAlert)
                         .clipShape(Capsule())
                 }
+                .disabled(SettingsManager.shared.pediatricianPhone.isEmpty)
 
                 Button {
                     onDismissMedical?()
@@ -292,7 +299,7 @@ struct ConversationBubbleView: View {
 
     private var collapsedGroupCard: some View {
         Button {
-            withAnimation(.spring(duration: 0.25)) {
+            withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.25)) {
                 isGroupExpanded.toggle()
             }
             onExpandGroup?()

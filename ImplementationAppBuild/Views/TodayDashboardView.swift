@@ -7,6 +7,7 @@ struct TodayDashboardView: View {
     @Query(sort: \BabyEvent.timestamp, order: .reverse) private var allEvents: [BabyEvent]
     @GestureState private var pinchScale: CGFloat = 1.0
     @Environment(\.henriiReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     private var babyEvents: [BabyEvent] {
         allEvents.filter { $0.baby?.id == baby.id }
@@ -29,7 +30,7 @@ struct TodayDashboardView: View {
                 summaryRings
                 timelineSection
             }
-            .padding(.horizontal, HenriiSpacing.margin)
+            .padding(.horizontal, HenriiSpacing.horizontalMargin(for: sizeClass))
             .padding(.top, HenriiSpacing.lg)
             .padding(.bottom, 100)
         }

@@ -100,6 +100,20 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    HStack {
+                        Image(systemName: "phone.fill")
+                            .foregroundStyle(HenriiColors.accentPrimary)
+                        TextField("Phone number", text: $settings.pediatricianPhone)
+                            .keyboardType(.phonePad)
+                    }
+                } header: {
+                    Text("Pediatrician")
+                } footer: {
+                    Text("Used for the \"Call Pediatrician\" button on medical alerts.")
+                        .font(.henriiCaption)
+                }
+
+                Section {
                     Toggle("24-hour time", isOn: $settings.use24Hour)
                         .tint(HenriiColors.accentPrimary)
                     Toggle("Metric units (kg, cm, ml)", isOn: $settings.useMetric)

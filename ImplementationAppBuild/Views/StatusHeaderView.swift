@@ -9,6 +9,7 @@ struct StatusHeaderView: View {
     let onTapAvatar: () -> Void
     var onTapSearch: (() -> Void)?
     var onSwitchBaby: ((Baby) -> Void)?
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         VStack(spacing: HenriiSpacing.xs) {
@@ -58,7 +59,7 @@ struct StatusHeaderView: View {
                         }
                 }
             }
-            .padding(.horizontal, HenriiSpacing.margin)
+            .padding(.horizontal, HenriiSpacing.horizontalMargin(for: sizeClass))
             .padding(.vertical, HenriiSpacing.sm)
         }
         .background(.ultraThinMaterial)

@@ -73,6 +73,7 @@ final class ConversationViewModel {
         generateInsightIfNeeded(baby: baby, event: event, context: context)
         generateNudgeIfNeeded(baby: baby, event: event, context: context)
         checkMedicalFlag(baby: baby, event: event, context: context)
+        collapseRecentIfNeeded(baby: baby, event: event, context: context)
 
         composerText = ""
     }
@@ -240,11 +241,9 @@ final class ConversationViewModel {
         event.weightLbs = parsed.weightLbs
         event.heightInches = parsed.heightInches
         event.foodType = parsed.foodType
+        event.diaperColor = parsed.diaperColor
         event.symptoms = parsed.notes != nil && parsed.category == .health ? parsed.notes : nil
         if parsed.category == .note || parsed.category == .activity || parsed.category == .milestone {
-            event.notes = parsed.notes
-        }
-        if parsed.category == .diaper && parsed.notes != nil {
             event.notes = parsed.notes
         }
         if parsed.category == .milestone {
@@ -254,29 +253,51 @@ final class ConversationViewModel {
     }
 
     func insertDaySeparatorIfNeeded(baby: Baby, context: ModelContext) {
-        let todayStart = Calendar.current.startOfDay(for: Date())
-        let descriptor = FetchDescriptor<ConversationEntry>(
-            predicate: #Predicate<ConversationEntry> { $0.timestamp >= todayStart },
-            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
-        )
-
-        let todayEntries = (try? context.fetch(descriptor)) ?? []
-        let hasSeparator = todayEntries.contains { $0.type == .daySeparator }
-        guard !hasSeparator else { return }
+        let calendar = Calendar.current
+        let now = Date()
+        let todayStart = calendar.startOfDay(for: now)
 
         let lastEntryDesc = FetchDescriptor<ConversationEntry>(
             sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
         )
         let lastEntries = (try? context.fetch(lastEntryDesc)) ?? []
-        guard let lastEntry = lastEntries.first else { return }
+        guard let lastEntry = lastEntries.first(where: { $0.babyID == baby.id || $0.babyID == nil }) else { return }
 
-        let lastDay = Calendar.current.startOfDay(for: lastEntry.timestamp)
-        if lastDay < todayStart {
-            let formatter = DateFormatter()
-            formatter.dateStyle = .medium
+        let lastDay = calendar.startOfDay(for: lastEntry.timestamp)
+        guard lastDay < todayStart else { return }
+
+        let separatorDesc = FetchDescriptor<ConversationEntry>(
+            predicate: #Predicate<ConversationEntry> { $0.timestamp >= todayStart },
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        let todayEntries = (try? context.fetch(separatorDesc)) ?? []
+        let hasSeparator = todayEntries.contains { $0.type == .daySeparator && ($0.babyID == baby.id || $0.babyID == nil) }
+        guard !hasSeparator else { return }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMM d"
+
+        var datesToInsert: [Date] = []
+        var cursor = calendar.startOfDay(for: lastEntry.timestamp)
+        while cursor < todayStart {
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            datesToInsert.append(next)
+            cursor = next
+        }
+
+        for date in datesToInsert {
+            let label: String
+            if calendar.isDateInToday(date) {
+                label = "Today"
+            } else if calendar.isDateInYesterday(date) {
+                label = "Yesterday"
+            } else {
+                label = formatter.string(from: date)
+            }
             let sep = ConversationEntry(
                 type: .daySeparator,
-                text: formatter.string(from: Date()),
+                text: label,
+                timestamp: date,
                 babyID: baby.id
             )
             context.insert(sep)
@@ -617,6 +638,42 @@ final class ConversationViewModel {
                     context.insert(nudge)
                 }
             }
+        }
+    }
+
+    private func collapseRecentIfNeeded(baby: Baby, event: BabyEvent, context: ModelContext) {
+        let threshold: TimeInterval = 30 * 60
+        let cutoff = Date().addingTimeInterval(-threshold)
+
+        let entryDesc = FetchDescriptor<ConversationEntry>(
+            predicate: #Predicate<ConversationEntry> { $0.timestamp >= cutoff },
+            sortBy: [SortDescriptor(\ConversationEntry.timestamp, order: .reverse)]
+        )
+        guard let recentEntries = try? context.fetch(entryDesc) else { return }
+
+        let confirmations = recentEntries.filter {
+            $0.type == .confirmation && $0.babyID == baby.id
+        }
+        guard confirmations.count >= 4 else { return }
+
+        let hasGroup = recentEntries.contains { $0.type == .collapsedGroup && $0.babyID == baby.id }
+        guard !hasGroup else { return }
+
+        let toCollapse = Array(confirmations.dropFirst())
+        guard toCollapse.count >= 3 else { return }
+
+        let eventIDs = toCollapse.compactMap { $0.eventID?.uuidString }
+        let grouped = ConversationEntry(
+            type: .collapsedGroup,
+            text: "\(toCollapse.count) earlier entries",
+            babyID: baby.id
+        )
+        grouped.groupedEventIDs = eventIDs.joined(separator: ",")
+        grouped.timestamp = toCollapse.last?.timestamp ?? Date()
+        context.insert(grouped)
+
+        for entry in toCollapse {
+            context.delete(entry)
         }
     }
 
