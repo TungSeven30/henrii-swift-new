@@ -10,6 +10,7 @@ struct HomeView: View {
     @State private var conversationVM = ConversationViewModel()
     @State private var timerVM = TimerViewModel()
     @State private var showSearch: Bool = false
+    @State private var showGrowthSheet: Bool = false
     @Query(sort: \ConversationEntry.timestamp) private var allEntries: [ConversationEntry]
     @Query(sort: \BabyEvent.timestamp, order: .reverse) private var allEvents: [BabyEvent]
 
@@ -157,6 +158,9 @@ struct HomeView: View {
         .sheet(isPresented: $showSearch) {
             SearchView(baby: baby, events: babyEvents)
         }
+        .sheet(isPresented: $showGrowthSheet) {
+            GrowthLogSheet(baby: baby)
+        }
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
@@ -212,6 +216,8 @@ struct HomeView: View {
             withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
                 conversationVM.quickLog(category: .feeding, baby: baby, context: modelContext, feedingType: .bottle, amountOz: oz)
             }
+        case .logGrowth:
+            showGrowthSheet = true
         }
     }
 

@@ -5,6 +5,7 @@ nonisolated enum ChipAction: Sendable {
     case startSleep
     case logDiaper(DiaperType)
     case logBottle(Double?)
+    case logGrowth
 }
 
 struct ContextChipsView: View {
@@ -82,13 +83,15 @@ struct ContextChipsView: View {
     private var suggestedChips: [ChipData] {
         var chips: [ChipData] = []
 
-        chips.append(ChipData(emoji: "\u{1F37C}", label: "Feed", action: .startFeed))
+        chips.append(ChipData(emoji: "\u{1F931}", label: "Feed", action: .startFeed))
 
         chips.append(ChipData(emoji: "\u{1F4A4}", label: "Sleep", action: .startSleep))
 
         chips.append(ChipData(emoji: "\u{1F4A9}", label: "Diaper", action: .logDiaper(.wet), isMenu: true, menuType: .diaper))
 
         chips.append(ChipData(emoji: "\u{1F37C}", label: "Bottle", action: .logBottle(nil), isMenu: true, menuType: .bottle))
+
+        chips.append(ChipData(emoji: "\u{1F4CF}", label: "Growth", action: .logGrowth))
 
         return chips
     }

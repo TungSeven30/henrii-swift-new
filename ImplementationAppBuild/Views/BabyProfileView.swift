@@ -6,6 +6,7 @@ struct BabyProfileView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \BabyEvent.timestamp, order: .reverse) private var allEvents: [BabyEvent]
 
+    @Environment(\.dismiss) private var dismiss
     @State private var showSettings: Bool = false
     @State private var showAddBaby: Bool = false
     @State private var showReport: Bool = false
@@ -48,6 +49,12 @@ struct BabyProfileView: View {
             ExportShareView(csv: exportCSV, babyName: baby.name)
         }
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(HenriiColors.textTertiary)
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showSettings = true } label: {
                     Image(systemName: "gearshape")
