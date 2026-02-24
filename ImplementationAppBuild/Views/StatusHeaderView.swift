@@ -2,18 +2,24 @@ import SwiftUI
 
 struct StatusHeaderView: View {
     let baby: Baby
+    var babies: [Baby] = []
     let events: [BabyEvent]
     let onTapStatus: () -> Void
     let onTapInsights: () -> Void
     let onTapAvatar: () -> Void
     var onTapSearch: (() -> Void)?
+    var onSwitchBaby: ((Baby) -> Void)?
 
     var body: some View {
         VStack(spacing: HenriiSpacing.xs) {
-            HStack(spacing: HenriiSpacing.lg) {
+            HStack(spacing: HenriiSpacing.sm) {
+                if babies.count > 1 {
+                    babySwitcherMenu
+                }
+
                 Button { onTapStatus() } label: {
                     HStack(spacing: HenriiSpacing.lg) {
-                        statusPill(icon: "cup.and.saucer.fill", time: timeSince(.feeding), color: HenriiColors.dataFeeding)
+                        statusPill(icon: "drop.fill", time: timeSince(.feeding), color: HenriiColors.dataFeeding)
                         statusPill(icon: "moon.fill", time: timeSince(.sleep), color: HenriiColors.dataSleep)
                         statusPill(icon: "leaf.fill", time: timeSince(.diaper), color: HenriiColors.dataDiaper)
                     }
@@ -26,7 +32,7 @@ struct StatusHeaderView: View {
                         Image(systemName: "magnifyingglass")
                             .font(.callout)
                             .foregroundStyle(HenriiColors.textSecondary)
-                            .frame(width: 36, height: 36)
+                            .frame(width: 44, height: 44)
                             .background(HenriiColors.canvasElevated)
                             .clipShape(Circle())
                     }
@@ -36,7 +42,7 @@ struct StatusHeaderView: View {
                     Image(systemName: "chart.line.uptrend.xyaxis")
                         .font(.callout)
                         .foregroundStyle(HenriiColors.textSecondary)
-                        .frame(width: 36, height: 36)
+                        .frame(width: 44, height: 44)
                         .background(HenriiColors.canvasElevated)
                         .clipShape(Circle())
                 }
@@ -44,7 +50,7 @@ struct StatusHeaderView: View {
                 Button { onTapAvatar() } label: {
                     Circle()
                         .fill(HenriiColors.accentPrimary.opacity(0.15))
-                        .frame(width: 36, height: 36)
+                        .frame(width: 44, height: 44)
                         .overlay {
                             Text(baby.name.prefix(1))
                                 .font(.henriiHeadline)
@@ -56,6 +62,40 @@ struct StatusHeaderView: View {
             .padding(.vertical, HenriiSpacing.sm)
         }
         .background(.ultraThinMaterial)
+    }
+
+    private var babySwitcherMenu: some View {
+        Menu {
+            ForEach(babies) { b in
+                Button {
+                    onSwitchBaby?(b)
+                } label: {
+                    Label {
+                        Text(b.name)
+                    } icon: {
+                        if b.id == baby.id {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: HenriiSpacing.xs) {
+                Circle()
+                    .fill(HenriiColors.accentPrimary)
+                    .frame(width: 28, height: 28)
+                    .overlay {
+                        Text(baby.name.prefix(1))
+                            .font(.system(.caption, design: .rounded, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(HenriiColors.textTertiary)
+            }
+            .frame(height: 44)
+        }
     }
 
     private func statusPill(icon: String, time: String, color: Color) -> some View {

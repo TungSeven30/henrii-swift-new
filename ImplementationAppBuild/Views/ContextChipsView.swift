@@ -5,6 +5,7 @@ nonisolated enum ChipAction: Sendable {
     case startSleep
     case logDiaper(DiaperType)
     case logBottle(Double?)
+    case logBottleCustom
     case logGrowth
 }
 
@@ -57,8 +58,12 @@ struct ContextChipsView: View {
                 Button { onAction(.logBottle(5)) } label: { Text("5 oz") }
                 Button { onAction(.logBottle(6)) } label: { Text("6 oz") }
                 Button { onAction(.logBottle(8)) } label: { Text("8 oz") }
+                Divider()
+                Button { onAction(.logBottleCustom) } label: {
+                    Label("Custom amount...", systemImage: "pencil")
+                }
                 Button { onAction(.logBottle(nil)) } label: {
-                    Label("Log without amount", systemImage: "cup.and.saucer.fill")
+                    Label("Log without amount", systemImage: "drop.fill")
                 }
             }
         } label: {
@@ -75,7 +80,7 @@ struct ContextChipsView: View {
                 .foregroundStyle(HenriiColors.textPrimary)
         }
         .padding(.horizontal, HenriiSpacing.md)
-        .padding(.vertical, HenriiSpacing.sm)
+        .frame(height: 40)
         .background(HenriiColors.canvasElevated)
         .clipShape(Capsule())
     }

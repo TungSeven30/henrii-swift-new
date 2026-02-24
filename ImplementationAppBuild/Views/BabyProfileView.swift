@@ -79,7 +79,7 @@ struct BabyProfileView: View {
                 .font(.henriiLargeTitle)
                 .foregroundStyle(HenriiColors.textPrimary)
 
-            Text(baby.ageDescription)
+            Text("\(baby.gender.displayName) \u{2022} \(baby.ageDescription)")
                 .font(.henriiCallout)
                 .foregroundStyle(HenriiColors.textSecondary)
 

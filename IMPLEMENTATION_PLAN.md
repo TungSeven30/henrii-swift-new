@@ -188,7 +188,7 @@ Foundation work that other phases depend on.
 ### 8.2 Daily Intelligence
 
 | Task | Files | Description | Acceptance |
-|:-----|-------|-------------|------------|
+|------|-------|-------------|------------|
 | Morning briefing | New `DailyIntelligenceService` | Generate night summary; could be notification or in-app card | Wake-ups, feedings, total sleep |
 | Evening summary | `DailyIntelligenceService` | Day totals; adapt by baby age | Feeds, naps, diapers |
 | Weekly digest | `DailyIntelligenceService` | Trend overview; "growth spurt window" style context | Actionable |

@@ -1,5 +1,44 @@
 import SwiftUI
 
+struct ReduceMotionModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.henriiReduceMotion, reduceMotion)
+    }
+}
+
+private struct HenriiReduceMotionKey: EnvironmentKey {
+    nonisolated(unsafe) static let defaultValue: Bool = false
+}
+
+extension EnvironmentValues {
+    var henriiReduceMotion: Bool {
+        get { self[HenriiReduceMotionKey.self] }
+        set { self[HenriiReduceMotionKey.self] = newValue }
+    }
+}
+
+extension View {
+    func henriiAnimation<V: Equatable>(_ value: V) -> some View {
+        modifier(HenriiAnimationModifier(value: value))
+    }
+}
+
+struct HenriiAnimationModifier<V: Equatable>: ViewModifier {
+    @Environment(\.henriiReduceMotion) private var reduceMotion
+    let value: V
+
+    func body(content: Content) -> some View {
+        if reduceMotion {
+            content.animation(.easeInOut(duration: 0.15), value: value)
+        } else {
+            content.animation(.spring(duration: 0.35, bounce: 0.2), value: value)
+        }
+    }
+}
+
 enum HenriiColors {
     static let canvasPrimary = Color("CanvasPrimary")
     static let canvasElevated = Color("CanvasElevated")
@@ -24,6 +63,11 @@ enum HenriiSpacing {
     static let xl: CGFloat = 24
     static let xxl: CGFloat = 32
     static let margin: CGFloat = 20
+    static let marginTablet: CGFloat = 32
+
+    static func horizontalMargin(for sizeClass: UserInterfaceSizeClass?) -> CGFloat {
+        sizeClass == .regular ? marginTablet : margin
+    }
 }
 
 enum HenriiRadius {

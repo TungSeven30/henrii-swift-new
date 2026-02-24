@@ -3,11 +3,13 @@ import SwiftData
 
 struct OnboardingView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.henriiReduceMotion) private var reduceMotion
     let onComplete: (UUID) -> Void
 
     @State private var step: Int = 0
     @State private var babyName: String = ""
     @State private var birthDate: Date = Date()
+    @State private var selectedGender: BabyGender = .boy
     @State private var showDatePicker: Bool = false
     @FocusState private var nameFieldFocused: Bool
 
@@ -23,7 +25,7 @@ struct OnboardingView: View {
                     Image(systemName: "waveform.circle.fill")
                         .font(.system(size: 56))
                         .foregroundStyle(HenriiColors.accentPrimary)
-                        .symbolEffect(.pulse, options: .repeating, isActive: step == 0)
+                        .symbolEffect(.pulse, options: .repeating, isActive: step == 0 && !reduceMotion)
 
                     switch step {
                     case 0:
@@ -31,15 +33,17 @@ struct OnboardingView: View {
                     case 1:
                         nameStep
                     case 2:
-                        birthDateStep
+                        genderStep
                     case 3:
+                        birthDateStep
+                    case 4:
                         readyStep
                     default:
                         EmptyView()
                     }
                 }
                 .padding(.horizontal, HenriiSpacing.margin)
-                .animation(.spring(duration: 0.4, bounce: 0.2), value: step)
+                .animation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.4, bounce: 0.2), value: step)
 
                 Spacer()
                 Spacer()
@@ -109,6 +113,94 @@ struct OnboardingView: View {
         }
     }
 
+    private var genderStep: some View {
+        VStack(spacing: HenriiSpacing.xl) {
+            VStack(spacing: HenriiSpacing.sm) {
+                Text("Is \(babyName) a boy or girl?")
+                    .font(.henriiTitle2)
+                    .foregroundStyle(HenriiColors.textPrimary)
+
+                Text("Used for WHO growth chart comparison")
+                    .font(.henriiCallout)
+                    .foregroundStyle(HenriiColors.textTertiary)
+            }
+
+            HStack(spacing: HenriiSpacing.md) {
+                genderCard(gender: .boy)
+                genderCard(gender: .girl)
+            }
+
+            Button {
+                withAnimation { step = 3 }
+            } label: {
+                Text("Next")
+                    .font(.henriiHeadline)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(HenriiColors.accentPrimary)
+                    .clipShape(Capsule())
+            }
+            .padding(.top, HenriiSpacing.sm)
+        }
+    }
+
+    private func genderCard(gender: BabyGender) -> some View {
+        let isSelected = selectedGender == gender
+        let isBoy = gender == .boy
+        let cardColor: Color = isBoy ? Color(red: 0.55, green: 0.73, blue: 0.87) : Color(red: 0.91, green: 0.68, blue: 0.75)
+        let lightBg: Color = isBoy ? Color(red: 0.89, green: 0.94, blue: 0.98) : Color(red: 0.98, green: 0.91, blue: 0.94)
+
+        return Button {
+            withAnimation(.spring(duration: 0.35, bounce: 0.25)) {
+                selectedGender = gender
+            }
+        } label: {
+            VStack(spacing: HenriiSpacing.md) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            isSelected
+                            ? cardColor.opacity(0.2)
+                            : Color(.systemGray5).opacity(0.6)
+                        )
+                        .frame(width: 72, height: 72)
+
+                    Text(isBoy ? "\u{1F466}" : "\u{1F467}")
+                        .font(.system(size: 38))
+                }
+
+                Text(gender.displayName)
+                    .font(.system(.headline, design: .rounded, weight: .semibold))
+                    .foregroundStyle(isSelected ? (isBoy ? Color(red: 0.25, green: 0.45, blue: 0.65) : Color(red: 0.65, green: 0.3, blue: 0.42)) : HenriiColors.textSecondary)
+
+                Circle()
+                    .strokeBorder(isSelected ? cardColor : Color(.systemGray4), lineWidth: isSelected ? 6 : 1.5)
+                    .frame(width: 22, height: 22)
+                    .overlay {
+                        if isSelected {
+                            Circle()
+                                .fill(cardColor)
+                                .frame(width: 10, height: 10)
+                        }
+                    }
+            }
+            .padding(.vertical, HenriiSpacing.xl)
+            .padding(.horizontal, HenriiSpacing.lg)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(isSelected ? lightBg : HenriiColors.canvasElevated)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(isSelected ? cardColor : .clear, lineWidth: 2.5)
+            )
+            .scaleEffect(isSelected ? 1.02 : 1.0)
+        }
+        .sensoryFeedback(.selection, trigger: isSelected)
+    }
+
     private var birthDateStep: some View {
         VStack(spacing: HenriiSpacing.lg) {
             Text("When was \(babyName) born?")
@@ -125,7 +217,7 @@ struct OnboardingView: View {
             .labelsHidden()
 
             Button {
-                withAnimation { step = 3 }
+                withAnimation { step = 4 }
             } label: {
                 Text("Next")
                     .font(.henriiHeadline)
@@ -150,7 +242,7 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
 
             Button {
-                let baby = Baby(name: babyName.trimmingCharacters(in: .whitespaces), birthDate: birthDate)
+                let baby = Baby(name: babyName.trimmingCharacters(in: .whitespaces), birthDate: birthDate, gender: selectedGender)
                 modelContext.insert(baby)
 
                 let welcome = ConversationEntry(

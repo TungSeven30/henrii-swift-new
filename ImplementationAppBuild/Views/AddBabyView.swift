@@ -8,6 +8,7 @@ struct AddBabyView: View {
 
     @State private var babyName: String = ""
     @State private var birthDate: Date = Date()
+    @State private var selectedGender: BabyGender = .boy
     @FocusState private var nameFieldFocused: Bool
 
     var body: some View {
@@ -29,6 +30,13 @@ struct AddBabyView: View {
                         .multilineTextAlignment(.center)
                         .focused($nameFieldFocused)
 
+                    Picker("Gender", selection: $selectedGender) {
+                        ForEach(BabyGender.allCases, id: \.rawValue) { gender in
+                            Text(gender.displayName).tag(gender)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
                     DatePicker(
                         "Birth date",
                         selection: $birthDate,
@@ -44,7 +52,7 @@ struct AddBabyView: View {
                 Button {
                     let trimmed = babyName.trimmingCharacters(in: .whitespaces)
                     guard !trimmed.isEmpty else { return }
-                    let baby = Baby(name: trimmed, birthDate: birthDate)
+                    let baby = Baby(name: trimmed, birthDate: birthDate, gender: selectedGender)
                     modelContext.insert(baby)
 
                     let welcome = ConversationEntry(

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ConversationBubbleView: View {
+    @Environment(\.henriiReduceMotion) private var reduceMotion
     let entry: ConversationEntry
     let event: BabyEvent?
     let onDelete: () -> Void
@@ -242,7 +243,7 @@ struct ConversationBubbleView: View {
     private func iconForTopic(_ topic: String?) -> String {
         switch topic {
         case "weight", "growth": return "chart.line.uptrend.xyaxis"
-        case "feeding": return "cup.and.saucer.fill"
+        case "feeding": return "drop.fill"
         case "sleep": return "moon.fill"
         case "diaper": return "leaf.fill"
         case "health": return "heart.text.clipboard.fill"
