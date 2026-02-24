@@ -114,37 +114,20 @@ struct OnboardingView: View {
     }
 
     private var genderStep: some View {
-        VStack(spacing: HenriiSpacing.lg) {
-            Text("Is \(babyName) a boy or girl?")
-                .font(.henriiTitle2)
-                .foregroundStyle(HenriiColors.textPrimary)
+        VStack(spacing: HenriiSpacing.xl) {
+            VStack(spacing: HenriiSpacing.sm) {
+                Text("Is \(babyName) a boy or girl?")
+                    .font(.henriiTitle2)
+                    .foregroundStyle(HenriiColors.textPrimary)
 
-            Text("Used for WHO growth chart comparison")
-                .font(.henriiCallout)
-                .foregroundStyle(HenriiColors.textTertiary)
+                Text("Used for WHO growth chart comparison")
+                    .font(.henriiCallout)
+                    .foregroundStyle(HenriiColors.textTertiary)
+            }
 
-            HStack(spacing: HenriiSpacing.lg) {
-                ForEach(BabyGender.allCases, id: \.rawValue) { gender in
-                    Button {
-                        selectedGender = gender
-                    } label: {
-                        VStack(spacing: HenriiSpacing.sm) {
-                            Image(systemName: gender == .boy ? "figure.child" : "figure.child.circle")
-                                .font(.system(size: 36))
-                            Text(gender.displayName)
-                                .font(.henriiHeadline)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 100)
-                        .background(selectedGender == gender ? HenriiColors.accentPrimary.opacity(0.15) : HenriiColors.canvasElevated)
-                        .foregroundStyle(selectedGender == gender ? HenriiColors.accentPrimary : HenriiColors.textSecondary)
-                        .clipShape(.rect(cornerRadius: HenriiRadius.medium))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: HenriiRadius.medium)
-                                .stroke(selectedGender == gender ? HenriiColors.accentPrimary : .clear, lineWidth: 2)
-                        )
-                    }
-                }
+            HStack(spacing: HenriiSpacing.md) {
+                genderCard(gender: .boy)
+                genderCard(gender: .girl)
             }
 
             Button {
@@ -158,7 +141,64 @@ struct OnboardingView: View {
                     .background(HenriiColors.accentPrimary)
                     .clipShape(Capsule())
             }
+            .padding(.top, HenriiSpacing.sm)
         }
+    }
+
+    private func genderCard(gender: BabyGender) -> some View {
+        let isSelected = selectedGender == gender
+        let isBoy = gender == .boy
+        let cardColor: Color = isBoy ? Color(red: 0.55, green: 0.73, blue: 0.87) : Color(red: 0.91, green: 0.68, blue: 0.75)
+        let lightBg: Color = isBoy ? Color(red: 0.89, green: 0.94, blue: 0.98) : Color(red: 0.98, green: 0.91, blue: 0.94)
+
+        return Button {
+            withAnimation(.spring(duration: 0.35, bounce: 0.25)) {
+                selectedGender = gender
+            }
+        } label: {
+            VStack(spacing: HenriiSpacing.md) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            isSelected
+                            ? cardColor.opacity(0.2)
+                            : Color(.systemGray5).opacity(0.6)
+                        )
+                        .frame(width: 72, height: 72)
+
+                    Text(isBoy ? "\u{1F466}" : "\u{1F467}")
+                        .font(.system(size: 38))
+                }
+
+                Text(gender.displayName)
+                    .font(.system(.headline, design: .rounded, weight: .semibold))
+                    .foregroundStyle(isSelected ? (isBoy ? Color(red: 0.25, green: 0.45, blue: 0.65) : Color(red: 0.65, green: 0.3, blue: 0.42)) : HenriiColors.textSecondary)
+
+                Circle()
+                    .strokeBorder(isSelected ? cardColor : Color(.systemGray4), lineWidth: isSelected ? 6 : 1.5)
+                    .frame(width: 22, height: 22)
+                    .overlay {
+                        if isSelected {
+                            Circle()
+                                .fill(cardColor)
+                                .frame(width: 10, height: 10)
+                        }
+                    }
+            }
+            .padding(.vertical, HenriiSpacing.xl)
+            .padding(.horizontal, HenriiSpacing.lg)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(isSelected ? lightBg : HenriiColors.canvasElevated)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(isSelected ? cardColor : .clear, lineWidth: 2.5)
+            )
+            .scaleEffect(isSelected ? 1.02 : 1.0)
+        }
+        .sensoryFeedback(.selection, trigger: isSelected)
     }
 
     private var birthDateStep: some View {
