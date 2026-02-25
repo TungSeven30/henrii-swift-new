@@ -47,7 +47,7 @@ nonisolated struct HenriiWidgetProvider: TimelineProvider {
     }
 
     private func makeEntry() -> HenriiWidgetEntry {
-        let defaults = UserDefaults.standard
+        let defaults = UserDefaults(suiteName: "group.app.rork.henrii") ?? .standard
         return HenriiWidgetEntry(
             date: .now,
             lastFeedText: defaults.string(forKey: "widgetLastFeedText") ?? "Last feed unavailable",
@@ -78,6 +78,11 @@ struct HenriiWidgetView: View {
     @Environment(\.widgetFamily) private var family
     let entry: HenriiWidgetEntry
 
+    private let terracotta = Color(red: 0.851, green: 0.424, blue: 0.322)
+    private let feedingAmber = Color(red: 0.890, green: 0.655, blue: 0.478)
+    private let sleepSlate = Color(red: 0.420, green: 0.478, blue: 0.561)
+    private let diaperSage = Color(red: 0.545, green: 0.604, blue: 0.518)
+
     var body: some View {
         switch family {
         case .systemSmall:
@@ -91,15 +96,22 @@ struct HenriiWidgetView: View {
 
     private var smallView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Last feed", systemImage: "drop.fill")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 4) {
+                Image(systemName: "drop.fill")
+                    .font(.caption2)
+                    .foregroundStyle(feedingAmber)
+                Text("Last feed")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Text(entry.lastFeedText)
-                .font(.headline)
+                .font(.system(.headline, design: .rounded))
+                .foregroundStyle(.primary)
                 .lineLimit(2)
             Spacer()
             Text(entry.timerText)
                 .font(.system(.title3, design: .monospaced).weight(.semibold))
+                .foregroundStyle(terracotta)
         }
     }
 
@@ -107,7 +119,7 @@ struct HenriiWidgetView: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(entry.lastFeedText)
-                    .font(.headline)
+                    .font(.system(.headline, design: .rounded))
                 Text(entry.statusText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -115,12 +127,13 @@ struct HenriiWidgetView: View {
                 Spacer()
                 Text(entry.timerText)
                     .font(.system(.title3, design: .monospaced).weight(.semibold))
+                    .foregroundStyle(terracotta)
             }
             Spacer()
             VStack(alignment: .leading, spacing: 8) {
-                metricRow(icon: "drop.fill", title: "Feeds", value: "\(entry.feedCount)")
-                metricRow(icon: "moon.fill", title: "Sleep", value: String(format: "%.1fh", entry.sleepHours))
-                metricRow(icon: "leaf.fill", title: "Diapers", value: "\(entry.diaperCount)")
+                metricRow(icon: "drop.fill", title: "Feeds", value: "\(entry.feedCount)", color: feedingAmber)
+                metricRow(icon: "moon.fill", title: "Sleep", value: String(format: "%.1fh", entry.sleepHours), color: sleepSlate)
+                metricRow(icon: "leaf.fill", title: "Diapers", value: "\(entry.diaperCount)", color: diaperSage)
             }
         }
     }
@@ -128,25 +141,25 @@ struct HenriiWidgetView: View {
     private var largeView: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Today at a glance")
-                .font(.headline)
+                .font(.system(.headline, design: .rounded))
             Text(entry.statusText)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
 
-            metricRow(icon: "drop.fill", title: "Last feed", value: entry.lastFeedText)
-            metricRow(icon: "timer", title: "Active timer", value: entry.timerText)
-            metricRow(icon: "chart.bar.fill", title: "Feeds", value: "\(entry.feedCount)")
-            metricRow(icon: "moon.fill", title: "Sleep", value: String(format: "%.1f hours", entry.sleepHours))
-            metricRow(icon: "leaf.fill", title: "Diapers", value: "\(entry.diaperCount)")
+            metricRow(icon: "drop.fill", title: "Last feed", value: entry.lastFeedText, color: feedingAmber)
+            metricRow(icon: "timer", title: "Active timer", value: entry.timerText, color: terracotta)
+            metricRow(icon: "chart.bar.fill", title: "Feeds", value: "\(entry.feedCount)", color: feedingAmber)
+            metricRow(icon: "moon.fill", title: "Sleep", value: String(format: "%.1f hours", entry.sleepHours), color: sleepSlate)
+            metricRow(icon: "leaf.fill", title: "Diapers", value: "\(entry.diaperCount)", color: diaperSage)
             Spacer(minLength: 0)
         }
     }
 
-    private func metricRow(icon: String, title: String, value: String) -> some View {
+    private func metricRow(icon: String, title: String, value: String, color: Color) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .foregroundStyle(.tint)
+                .foregroundStyle(color)
             Text(title)
                 .foregroundStyle(.secondary)
             Spacer(minLength: 6)
@@ -161,43 +174,91 @@ struct HenriiWidgetView: View {
 nonisolated struct HenriiTimerLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: HenriiTimerActivityAttributes.self) { context in
-            VStack(alignment: .leading, spacing: 10) {
-                Text(context.attributes.babyName)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(context.state.categoryRawValue == "sleep" ? "Sleep Timer" : "Feed Timer")
-                    .font(.headline)
-                Text(formatDuration(context.state.elapsedSeconds))
-                    .font(.system(.title2, design: .monospaced).weight(.bold))
-                Text(context.state.isPaused ? "Paused" : "Running")
-                    .font(.caption)
-                    .foregroundStyle(context.state.isPaused ? .secondary : .primary)
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Image(systemName: context.state.categoryRawValue == "sleep" ? "moon.fill" : "drop.fill")
+                            .font(.caption)
+                            .foregroundStyle(context.state.categoryRawValue == "sleep" ? .indigo : .orange)
+                        Text(context.attributes.babyName)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(context.state.categoryRawValue == "sleep" ? "Sleep Timer" : "Feed Timer")
+                        .font(.headline)
+                    Text(formatDuration(context.state.elapsedSeconds))
+                        .font(.system(.title, design: .monospaced).weight(.bold))
+                        .contentTransition(.numericText())
+                    Text(context.state.isPaused ? "Paused" : "Running")
+                        .font(.caption2)
+                        .foregroundStyle(context.state.isPaused ? .orange : .green)
+                }
+
+                Spacer()
+
+                if context.state.categoryRawValue == "feeding" && !context.state.sideRawValue.isEmpty {
+                    VStack(spacing: 4) {
+                        Text(context.state.sideRawValue == "breastLeft" ? "L" : "R")
+                            .font(.system(.title3, design: .rounded).weight(.bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 44, height: 44)
+                            .background(Circle().fill(.white.opacity(0.15)))
+                        Text("Side")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
-            .padding(.vertical, 4)
-            .activityBackgroundTint(.black.opacity(0.15))
-            .activitySystemActionForegroundColor(.primary)
+            .padding(16)
+            .activityBackgroundTint(.black.opacity(0.6))
+            .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Image(systemName: context.state.categoryRawValue == "sleep" ? "moon.fill" : "drop.fill")
-                        .foregroundStyle(.tint)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Image(systemName: context.state.categoryRawValue == "sleep" ? "moon.fill" : "drop.fill")
+                            .font(.title3)
+                            .foregroundStyle(context.state.categoryRawValue == "sleep" ? .indigo : .orange)
+                        Text(context.attributes.babyName)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text(formatDuration(context.state.elapsedSeconds))
-                        .font(.system(.body, design: .monospaced).weight(.semibold))
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text(formatDuration(context.state.elapsedSeconds))
+                            .font(.system(.title3, design: .monospaced).weight(.bold))
+                            .contentTransition(.numericText())
+                        Text(context.state.isPaused ? "Paused" : "Running")
+                            .font(.caption2)
+                            .foregroundStyle(context.state.isPaused ? .orange : .green)
+                    }
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    Text(context.state.isPaused ? "Paused" : "Running")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 12) {
+                        if context.state.categoryRawValue == "feeding" {
+                            Text(context.state.sideRawValue == "breastLeft" ? "Left side" : "Right side")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(context.state.categoryRawValue == "sleep" ? "Sleep" : "Feed")
+                            .font(.caption)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(.white.opacity(0.1), in: Capsule())
+                    }
                 }
             } compactLeading: {
                 Image(systemName: context.state.categoryRawValue == "sleep" ? "moon.fill" : "drop.fill")
+                    .foregroundStyle(context.state.categoryRawValue == "sleep" ? .indigo : .orange)
             } compactTrailing: {
                 Text(shortDuration(context.state.elapsedSeconds))
                     .font(.system(.caption2, design: .monospaced).weight(.semibold))
+                    .contentTransition(.numericText())
             } minimal: {
                 Image(systemName: context.state.categoryRawValue == "sleep" ? "moon.fill" : "drop.fill")
+                    .foregroundStyle(context.state.categoryRawValue == "sleep" ? .indigo : .orange)
             }
         }
     }

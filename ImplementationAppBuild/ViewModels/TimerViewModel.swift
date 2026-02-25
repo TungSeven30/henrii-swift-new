@@ -98,7 +98,7 @@ final class TimerViewModel {
         elapsedSeconds = 0
         startTime = nil
         clearPersistedTimer()
-        UserDefaults.standard.set("--:--", forKey: "widgetTimerText")
+        (UserDefaults(suiteName: "group.app.rork.henrii") ?? .standard).set("--:--", forKey: "widgetTimerText")
         WidgetCenter.shared.reloadAllTimelines()
         Task {
             await HenriiLiveActivityManager.shared.endTimerActivity(category: category, elapsedSeconds: seconds, side: side)
@@ -131,7 +131,7 @@ final class TimerViewModel {
                 } else {
                     self.elapsedSeconds += 1
                 }
-                UserDefaults.standard.set(self.formattedTime, forKey: "widgetTimerText")
+                (UserDefaults(suiteName: "group.app.rork.henrii") ?? .standard).set(self.formattedTime, forKey: "widgetTimerText")
                 if self.elapsedSeconds - self.lastLAUpdate >= 5 {
                     self.lastLAUpdate = self.elapsedSeconds
                     Task {

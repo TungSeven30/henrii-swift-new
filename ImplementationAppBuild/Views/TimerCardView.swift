@@ -134,8 +134,18 @@ struct TimerCardView: View {
     }
 
     private var timerAccessibilityValue: String {
-        let state = timerVM.isPaused ? "paused" : "active"
         let category = timerVM.timerCategory == .sleep ? "Sleep" : "Feed"
-        return "\(category) timer \(state), \(timerVM.formattedTime) elapsed"
+        let hours = timerVM.elapsedSeconds / 3600
+        let minutes = (timerVM.elapsedSeconds % 3600) / 60
+        let durationText: String
+        if hours > 0 {
+            durationText = "\(hours) hour\(hours == 1 ? "" : "s") \(minutes) minute\(minutes == 1 ? "" : "s")"
+        } else {
+            durationText = "\(minutes) minute\(minutes == 1 ? "" : "s")"
+        }
+        if timerVM.isPaused {
+            return "\(category) timer paused. \(durationText) elapsed. Double-tap resume to continue."
+        }
+        return "\(category) timer active. \(durationText) elapsed. Slide right to stop."
     }
 }

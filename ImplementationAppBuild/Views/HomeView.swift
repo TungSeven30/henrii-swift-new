@@ -131,6 +131,25 @@ struct HomeView: View {
                             AccessibilityRotorEntry(entry.text, id: entry.id)
                         }
                     }
+                    .accessibilityRotor("Edit Entry") {
+                        ForEach(entries.filter { $0.type == .confirmation }, id: \.id) { entry in
+                            AccessibilityRotorEntry("Edit \(entry.text)", id: entry.id) {
+                                milestoneEventToEdit = eventFor(entry)
+                            }
+                        }
+                    }
+                    .accessibilityRotor("Delete Entry") {
+                        ForEach(entries.filter { $0.type == .confirmation }, id: \.id) { entry in
+                            AccessibilityRotorEntry("Delete \(entry.text)", id: entry.id) {
+                                withAnimation {
+                                    if let event = eventFor(entry) {
+                                        conversationVM.deleteEvent(event, context: modelContext)
+                                    }
+                                    modelContext.delete(entry)
+                                }
+                            }
+                        }
+                    }
                     .scrollDismissesKeyboard(.interactively)
                     .onChange(of: entries.count) { _, _ in
                         scrollToBottom(proxy)

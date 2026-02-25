@@ -222,7 +222,7 @@ struct ConversationBubbleView: View {
         .clipShape(.rect(cornerRadius: HenriiRadius.medium))
         .opacity(0.82)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Insight: \(entry.text)")
+        .accessibilityLabel("Insight card: \(entry.text)")
         .accessibilityHint("Double-tap for details.")
     }
 
@@ -242,6 +242,7 @@ struct ConversationBubbleView: View {
         .clipShape(.rect(cornerRadius: HenriiRadius.medium))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Reminder: \(entry.text)")
+        .accessibilityHint("Contextual suggestion based on recent activity.")
     }
 
     private var celebrationCard: some View {
@@ -266,6 +267,7 @@ struct ConversationBubbleView: View {
         .clipShape(.rect(cornerRadius: HenriiRadius.medium))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Celebration: \(entry.text)")
+        .accessibilityHint("Double-tap to view details.")
     }
 
     private var systemBubble: some View {
@@ -277,6 +279,8 @@ struct ConversationBubbleView: View {
             Spacer()
         }
         .padding(.horizontal, HenriiSpacing.sm)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("System message: \(entry.text)")
     }
 
     private var medicalFlagCard: some View {
@@ -679,5 +683,8 @@ struct ConversationBubbleView: View {
             VStack { Divider() }
         }
         .padding(.vertical, HenriiSpacing.sm)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Day separator: \(entry.text)")
+        .accessibilityAddTraits(.isHeader)
     }
 }

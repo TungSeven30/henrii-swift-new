@@ -79,10 +79,20 @@ struct InsightsView: View {
                         HStack(alignment: .bottom, spacing: 6) {
                             ForEach(dailyCounts, id: \.day) { item in
                                 VStack(spacing: 4) {
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .fill(HenriiColors.dataFeeding)
-                                        .frame(width: 28, height: max(8, CGFloat(item.count) * 12))
-
+                                    Text("\(item.count)")
+                                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                                        .foregroundStyle(HenriiColors.textTertiary)
+                                    ZStack(alignment: .bottom) {
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(HenriiColors.dataFeeding)
+                                            .frame(width: 28, height: max(8, CGFloat(item.count) * 12))
+                                        if item.count > 0 {
+                                            Image(systemName: "drop.fill")
+                                                .font(.system(size: 8))
+                                                .foregroundStyle(.white.opacity(0.7))
+                                                .padding(.bottom, 2)
+                                        }
+                                    }
                                     Text(item.dayLabel)
                                         .font(.system(size: 10))
                                         .foregroundStyle(HenriiColors.textTertiary)
@@ -91,6 +101,8 @@ struct InsightsView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 120, alignment: .bottom)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Feeding chart. " + dailyCounts.map { "\($0.dayLabel): \($0.count) feeds" }.joined(separator: ", "))
                     }
                 }
             }
@@ -126,10 +138,20 @@ struct InsightsView: View {
                         HStack(alignment: .bottom, spacing: 6) {
                             ForEach(dailyMinutes, id: \.day) { item in
                                 VStack(spacing: 4) {
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .fill(HenriiColors.dataSleep)
-                                        .frame(width: 28, height: max(8, CGFloat(item.minutes / 60) * 8))
-
+                                    Text(String(format: "%.1f", item.minutes / 60))
+                                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                                        .foregroundStyle(HenriiColors.textTertiary)
+                                    ZStack(alignment: .bottom) {
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(HenriiColors.dataSleep)
+                                            .frame(width: 28, height: max(8, CGFloat(item.minutes / 60) * 8))
+                                        if item.minutes > 0 {
+                                            Image(systemName: "moon.fill")
+                                                .font(.system(size: 8))
+                                                .foregroundStyle(.white.opacity(0.7))
+                                                .padding(.bottom, 2)
+                                        }
+                                    }
                                     Text(item.dayLabel)
                                         .font(.system(size: 10))
                                         .foregroundStyle(HenriiColors.textTertiary)
@@ -138,6 +160,8 @@ struct InsightsView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 120, alignment: .bottom)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Sleep chart. " + dailyMinutes.map { "\($0.dayLabel): \(String(format: "%.1f", $0.minutes / 60)) hours" }.joined(separator: ", "))
                     }
                 }
             }
@@ -156,17 +180,22 @@ struct InsightsView: View {
             color: HenriiColors.dataDiaper
         ) {
             HStack(spacing: HenriiSpacing.xl) {
-                diaperStat(value: "\(wet)", label: "Wet")
-                diaperStat(value: "\(dirty)", label: "Dirty")
-                diaperStat(value: "\(both)", label: "Both")
-                diaperStat(value: "\(diapers.count)", label: "Total")
+                diaperStat(value: "\(wet)", label: "Wet", icon: "drop.fill")
+                diaperStat(value: "\(dirty)", label: "Dirty", icon: "leaf.fill")
+                diaperStat(value: "\(both)", label: "Both", icon: "drop.triangle.fill")
+                diaperStat(value: "\(diapers.count)", label: "Total", icon: "number")
             }
             .frame(maxWidth: .infinity)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Diapers this week: \(wet) wet, \(dirty) dirty, \(both) both, \(diapers.count) total")
         }
     }
 
-    private func diaperStat(value: String, label: String) -> some View {
+    private func diaperStat(value: String, label: String, icon: String) -> some View {
         VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 12))
+                .foregroundStyle(HenriiColors.dataDiaper)
             Text(value)
                 .font(.henriiData(size: 24))
                 .foregroundStyle(HenriiColors.textPrimary)

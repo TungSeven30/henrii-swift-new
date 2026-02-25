@@ -883,7 +883,7 @@ final class ConversationViewModel {
         let sleepHours = sleeps.compactMap(\.durationMinutes).reduce(0, +) / 60
         let statusText = "\(feeds.count) feeds, \(String(format: "%.1f", sleepHours))h sleep, \(diapers.count) diapers today"
 
-        let defaults = UserDefaults.standard
+        let defaults = UserDefaults(suiteName: "group.app.rork.henrii") ?? .standard
         defaults.set(lastFeedText, forKey: "widgetLastFeedText")
         defaults.set(statusText, forKey: "widgetStatusText")
         defaults.set(feeds.count, forKey: "widgetFeedCount")
