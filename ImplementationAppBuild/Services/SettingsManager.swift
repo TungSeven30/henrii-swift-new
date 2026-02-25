@@ -55,5 +55,52 @@ final class SettingsManager {
         set { UserDefaults.standard.set(newValue, forKey: "pediatricianPhone") }
     }
 
+    var insightConfidenceThreshold: Double {
+        get {
+            let value = UserDefaults.standard.double(forKey: "insightConfidenceThreshold")
+            return value == 0 ? 0.85 : value
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "insightConfidenceThreshold") }
+    }
+
+    var lastAutoInsightDate: Date? {
+        get { UserDefaults.standard.object(forKey: "lastAutoInsightDate") as? Date }
+        set { UserDefaults.standard.set(newValue, forKey: "lastAutoInsightDate") }
+    }
+
+    var caregiversEnabled: Bool {
+        get { UserDefaults.standard.bool(forKey: "caregiversEnabled") }
+        set { UserDefaults.standard.set(newValue, forKey: "caregiversEnabled") }
+    }
+
+    var appleHealthSyncEnabled: Bool {
+        get { UserDefaults.standard.bool(forKey: "appleHealthSyncEnabled") }
+        set { UserDefaults.standard.set(newValue, forKey: "appleHealthSyncEnabled") }
+    }
+
+    var siriShortcutsEnabled: Bool {
+        get { UserDefaults.standard.bool(forKey: "siriShortcutsEnabled") }
+        set { UserDefaults.standard.set(newValue, forKey: "siriShortcutsEnabled") }
+    }
+
+    var appleWatchEnabled: Bool {
+        get { UserDefaults.standard.bool(forKey: "appleWatchEnabled") }
+        set { UserDefaults.standard.set(newValue, forKey: "appleWatchEnabled") }
+    }
+
+    var dailySummaryHour: Int {
+        get {
+            let stored = UserDefaults.standard.integer(forKey: "dailySummaryHour")
+            return stored == 0 ? 18 : stored
+        }
+        set { UserDefaults.standard.set(newValue.clamped(to: 16...23), forKey: "dailySummaryHour") }
+    }
+
     private init() {}
+}
+
+private extension Int {
+    func clamped(to range: ClosedRange<Int>) -> Int {
+        Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
+    }
 }

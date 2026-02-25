@@ -95,6 +95,8 @@ struct SettingsView: View {
                         .tint(HenriiColors.accentPrimary)
                     Toggle("Medication alerts", isOn: $settings.medicationNotifications)
                         .tint(HenriiColors.accentPrimary)
+
+                    Stepper("Daily summary at \(settings.dailySummaryHour):00", value: $settings.dailySummaryHour, in: 16...23)
                 } header: {
                     Text("Notifications")
                 }
@@ -120,6 +122,30 @@ struct SettingsView: View {
                         .tint(HenriiColors.accentPrimary)
                 } header: {
                     Text("Units & Format")
+                }
+
+                Section {
+                    Toggle("Enable caregivers", isOn: $settings.caregiversEnabled)
+                        .tint(HenriiColors.accentPrimary)
+
+                    if settings.caregiversEnabled {
+                        Label("Co-Parent invite link", systemImage: "person.2.fill")
+                        Label("Nanny/Sitter invite link", systemImage: "figure.and.child.holdinghands")
+                        Label("Grandparent invite link", systemImage: "figure.2.and.child.holdinghands")
+                    }
+                } header: {
+                    Text("Caregivers")
+                }
+
+                Section {
+                    Toggle("Apple Health sync", isOn: $settings.appleHealthSyncEnabled)
+                        .tint(HenriiColors.accentPrimary)
+                    Toggle("Siri Shortcuts", isOn: $settings.siriShortcutsEnabled)
+                        .tint(HenriiColors.accentPrimary)
+                    Toggle("Apple Watch", isOn: $settings.appleWatchEnabled)
+                        .tint(HenriiColors.accentPrimary)
+                } header: {
+                    Text("Integrations")
                 }
 
                 Section {

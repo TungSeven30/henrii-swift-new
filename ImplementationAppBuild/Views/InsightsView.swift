@@ -20,6 +20,8 @@ struct InsightsView: View {
         ScrollView {
             VStack(spacing: HenriiSpacing.xl) {
                 if hasEnoughData {
+                    growthChartCard
+                    milestoneTrackerCard
                     feedingTrendCard
                     sleepTrendCard
                     diaperSummaryCard
@@ -35,6 +37,17 @@ struct InsightsView: View {
         .background(HenriiColors.canvasPrimary)
         .navigationTitle("Insights")
         .navigationBarTitleDisplayMode(.large)
+    }
+
+    private var growthChartCard: some View {
+        GrowthChartView(baby: baby, growthEvents: babyEvents.filter { $0.category == .growth })
+    }
+
+    private var milestoneTrackerCard: some View {
+        MilestoneTrackerView(
+            baby: baby,
+            milestoneCount: babyEvents.filter { $0.category == .milestone }.count
+        )
     }
 
     private var feedingTrendCard: some View {

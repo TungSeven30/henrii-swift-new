@@ -22,6 +22,14 @@ final class Baby {
     var photoData: Data?
     var isPremature: Bool
     var dueDate: Date?
+    var apgarScore: String
+    var birthWeightLbs: Double?
+    var birthLengthInches: Double?
+    var bloodType: String?
+    var allergies: String?
+    var pediatricianName: String?
+    var pediatricianPhone: String?
+    var nextPediatricianAppointment: Date?
     var createdAt: Date
 
     @Relationship(deleteRule: .cascade, inverse: \BabyEvent.baby)
@@ -30,13 +38,21 @@ final class Baby {
     @Relationship(deleteRule: .cascade, inverse: \Vaccination.baby)
     var vaccinations: [Vaccination]
 
-    init(name: String, birthDate: Date, gender: BabyGender = .boy, isPremature: Bool = false, dueDate: Date? = nil) {
+    init(name: String, birthDate: Date, gender: BabyGender = .boy, isPremature: Bool = false, dueDate: Date? = nil, apgarScore: String = "", birthWeightLbs: Double? = nil, birthLengthInches: Double? = nil, bloodType: String? = nil, allergies: String? = nil, pediatricianName: String? = nil, pediatricianPhone: String? = nil, nextPediatricianAppointment: Date? = nil) {
         self.id = UUID()
         self.name = name
         self.birthDate = birthDate
         self.gender = gender
         self.isPremature = isPremature
         self.dueDate = dueDate
+        self.apgarScore = apgarScore
+        self.birthWeightLbs = birthWeightLbs
+        self.birthLengthInches = birthLengthInches
+        self.bloodType = bloodType
+        self.allergies = allergies
+        self.pediatricianName = pediatricianName
+        self.pediatricianPhone = pediatricianPhone
+        self.nextPediatricianAppointment = nextPediatricianAppointment
         self.createdAt = Date()
         self.events = []
         self.vaccinations = []

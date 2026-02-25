@@ -349,45 +349,49 @@ final class ConversationViewModel {
 
     private func generateInsightIfNeeded(baby: Baby, event: BabyEvent, context: ModelContext) {
         guard settings.insightFrequency > 0.1 else { return }
+        guard settings.insightConfidenceThreshold <= 0.85 else { return }
 
-        let todayStart = Calendar.current.startOfDay(for: Date())
+        let calendar = Calendar.current
+        if let lastDate = settings.lastAutoInsightDate, calendar.isDate(lastDate, inSameDayAs: Date()) {
+            return
+        }
+
+        let todayStart = calendar.startOfDay(for: Date())
         let descriptor = FetchDescriptor<BabyEvent>(
             predicate: #Predicate { $0.timestamp >= todayStart }
         )
         guard let todayEvents = try? context.fetch(descriptor) else { return }
 
-        let feedCount = todayEvents.filter { $0.category == .feeding }.count
-        let diaperCount = todayEvents.filter { $0.category == .diaper }.count
-        let sleepMinutes = todayEvents.filter { $0.category == .sleep }.compactMap(\.durationMinutes).reduce(0, +)
+        let babyTodayEvents = todayEvents.filter { $0.baby?.id == baby.id }
+        let feedCount = babyTodayEvents.filter { $0.category == .feeding }.count
+        let diaperCount = babyTodayEvents.filter { $0.category == .diaper }.count
+        let sleepMinutes = babyTodayEvents.filter { $0.category == .sleep }.compactMap(\.durationMinutes).reduce(0, +)
 
+        var insightText: String?
         if feedCount == 8 && event.category == .feeding {
-            let insight = ConversationEntry(type: .insight, text: "That's 8 feeds today — right on track for this age.", babyID: baby.id)
-            context.insert(insight)
+            insightText = "That's 8 feeds today — right on track for this age."
         } else if feedCount == 4 && event.category == .feeding && settings.insightFrequency > 0.3 {
-            let insight = ConversationEntry(type: .insight, text: "Halfway there — 4 feeds so far today.", babyID: baby.id)
-            context.insert(insight)
-        }
-
-        if diaperCount == 6 && event.category == .diaper {
-            let insight = ConversationEntry(type: .insight, text: "6 diapers today. Good hydration signs.", babyID: baby.id)
-            context.insert(insight)
-        }
-
-        if sleepMinutes >= 600 && event.category == .sleep && event.durationMinutes != nil {
+            insightText = "Halfway there — 4 feeds so far today."
+        } else if diaperCount == 6 && event.category == .diaper {
+            insightText = "6 diapers today. Good hydration signs."
+        } else if sleepMinutes >= 600 && event.category == .sleep && event.durationMinutes != nil {
             let hours = Int(sleepMinutes) / 60
-            let insight = ConversationEntry(type: .insight, text: "\(baby.name) has gotten about \(hours) hours of sleep today. That's solid.", babyID: baby.id)
-            context.insert(insight)
+            insightText = "\(baby.name) has gotten about \(hours) hours of sleep today. That's solid."
+        } else if event.category == .feeding, let oz = event.amountOz, oz >= 6 {
+            insightText = "That's a big feed! \(baby.name) was hungry."
+        } else if event.category == .growth, let weight = event.weightLbs {
+            let whoResult = WHOGrowthData.percentile(weightLbs: weight, ageMonths: baby.ageInMonths, gender: baby.gender)
+            if whoResult.percentile >= 50 {
+                insightText = "\(baby.name) crossed into about the \(ordinal(whoResult.percentile)) percentile for weight today."
+            }
+        } else if event.category == .health, let temp = event.temperatureF, temp >= 100.4 {
+            insightText = "⚠️ Temperature is \(String(format: "%.1f", temp))°F — that's above normal. Keep monitoring and contact your pediatrician if it persists."
         }
 
-        if event.category == .feeding, let oz = event.amountOz, oz >= 6 {
-            let insight = ConversationEntry(type: .insight, text: "That's a big feed! \(baby.name) was hungry.", babyID: baby.id)
-            context.insert(insight)
-        }
-
-        if event.category == .health, let temp = event.temperatureF, temp >= 100.4 {
-            let alert = ConversationEntry(type: .insight, text: "\u{26A0}\u{FE0F} Temperature is \(String(format: "%.1f", temp))\u{00B0}F — that's above normal. Keep monitoring and contact your pediatrician if it persists.", babyID: baby.id)
-            context.insert(alert)
-        }
+        guard let insightText else { return }
+        let insight = ConversationEntry(type: .insight, text: insightText, babyID: baby.id)
+        context.insert(insight)
+        settings.lastAutoInsightDate = Date()
     }
 
     private func handleQuery(_ parsed: ParsedEvent, baby: Baby, context: ModelContext) {

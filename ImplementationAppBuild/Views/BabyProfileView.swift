@@ -29,7 +29,9 @@ struct BabyProfileView: View {
         ScrollView {
             VStack(spacing: HenriiSpacing.xl) {
                 profileHeader
-                vitalStatsSection
+                vitalsSection
+                pediatricianSection
+                medicalNotesSection
                 recentGrowthSection
                 vaccinationsSection
                 quickActionsSection
@@ -116,44 +118,54 @@ struct BabyProfileView: View {
         .padding(.vertical, HenriiSpacing.lg)
     }
 
-    private var vitalStatsSection: some View {
+    private var vitalsSection: some View {
         VStack(alignment: .leading, spacing: HenriiSpacing.md) {
-            Text("Quick Stats")
+            Text("Vitals")
                 .font(.henriiHeadline)
                 .foregroundStyle(HenriiColors.textPrimary)
 
-            let todayStart = Calendar.current.startOfDay(for: Date())
-            let todayEvents = babyEvents.filter { $0.timestamp >= todayStart }
-
             HStack(spacing: HenriiSpacing.md) {
                 statCard(
-                    value: "\(todayEvents.filter { $0.category == .feeding }.count)",
-                    label: "Feeds today",
-                    icon: "cup.and.saucer.fill",
-                    color: HenriiColors.dataFeeding
+                    value: baby.apgarScore.isEmpty ? "—" : baby.apgarScore,
+                    label: "APGAR",
+                    icon: "heart.text.square.fill",
+                    color: HenriiColors.semanticAlert
                 )
                 statCard(
-                    value: "\(todayEvents.filter { $0.category == .diaper }.count)",
-                    label: "Diapers today",
-                    icon: "leaf.fill",
-                    color: HenriiColors.dataDiaper
+                    value: baby.birthWeightLbs.map { String(format: "%.1f lb", $0) } ?? "—",
+                    label: "Birth weight",
+                    icon: "scalemass.fill",
+                    color: HenriiColors.dataGrowth
                 )
             }
 
             HStack(spacing: HenriiSpacing.md) {
-                let sleepMins = todayEvents.filter { $0.category == .sleep }.compactMap(\.durationMinutes).reduce(0, +)
                 statCard(
-                    value: formatDuration(sleepMins),
-                    label: "Sleep today",
-                    icon: "moon.fill",
-                    color: HenriiColors.dataSleep
+                    value: baby.birthLengthInches.map { String(format: "%.1f in", $0) } ?? "—",
+                    label: "Birth length",
+                    icon: "ruler.fill",
+                    color: HenriiColors.dataGrowth
                 )
                 statCard(
-                    value: "\(babyEvents.count)",
-                    label: "Total entries",
-                    icon: "chart.bar.fill",
-                    color: HenriiColors.accentPrimary
+                    value: baby.bloodType ?? "—",
+                    label: "Blood type",
+                    icon: "drop.fill",
+                    color: HenriiColors.dataFeeding
                 )
+            }
+
+            if let allergies = baby.allergies, !allergies.isEmpty {
+                HStack(spacing: HenriiSpacing.xs) {
+                    Image(systemName: "exclamationmark.shield.fill")
+                        .foregroundStyle(HenriiColors.semanticAlert)
+                    Text("Allergies: \(allergies)")
+                        .font(.henriiCallout)
+                        .foregroundStyle(HenriiColors.textSecondary)
+                }
+                .padding(HenriiSpacing.md)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(HenriiColors.canvasElevated)
+                .clipShape(.rect(cornerRadius: HenriiRadius.small))
             }
         }
     }
@@ -184,6 +196,8 @@ struct BabyProfileView: View {
                 .font(.henriiHeadline)
                 .foregroundStyle(HenriiColors.textPrimary)
 
+            GrowthChartView(baby: baby, growthEvents: growthEvents)
+
             if growthEvents.isEmpty {
                 HStack {
                     Image(systemName: "ruler.fill")
@@ -196,21 +210,6 @@ struct BabyProfileView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(HenriiColors.canvasElevated)
                 .clipShape(.rect(cornerRadius: HenriiRadius.medium))
-            } else {
-                ForEach(growthEvents.prefix(3)) { event in
-                    HStack {
-                        Text(event.summaryText)
-                            .font(.henriiCallout)
-                            .foregroundStyle(HenriiColors.textPrimary)
-                        Spacer()
-                        Text(event.timestamp, format: .dateTime.month(.abbreviated).day())
-                            .font(.henriiCaption)
-                            .foregroundStyle(HenriiColors.textTertiary)
-                    }
-                    .padding(HenriiSpacing.lg)
-                    .background(HenriiColors.canvasElevated)
-                    .clipShape(.rect(cornerRadius: HenriiRadius.medium))
-                }
             }
         }
     }
@@ -235,6 +234,88 @@ struct BabyProfileView: View {
 
             Button { showAddBaby = true } label: {
                 actionRow(icon: "plus.circle.fill", title: "Add Another Baby")
+            }
+        }
+    }
+
+    private var pediatricianSection: some View {
+        VStack(alignment: .leading, spacing: HenriiSpacing.md) {
+            Text("Pediatrician")
+                .font(.henriiHeadline)
+                .foregroundStyle(HenriiColors.textPrimary)
+
+            VStack(alignment: .leading, spacing: HenriiSpacing.sm) {
+                Text(baby.pediatricianName ?? "Not added yet")
+                    .font(.henriiCallout)
+                    .foregroundStyle(HenriiColors.textPrimary)
+
+                if let appointment = baby.nextPediatricianAppointment {
+                    Text("Next appointment: \(appointment, format: .dateTime.month(.abbreviated).day().hour().minute())")
+                        .font(.henriiCaption)
+                        .foregroundStyle(HenriiColors.textSecondary)
+                }
+
+                HStack(spacing: HenriiSpacing.md) {
+                    let phone = (baby.pediatricianPhone?.isEmpty == false ? baby.pediatricianPhone! : SettingsManager.shared.pediatricianPhone)
+                    if !phone.isEmpty,
+                       let url = URL(string: "tel://\(phone.filter { $0.isNumber || $0 == "+" })") {
+                        Link(destination: url) {
+                            Label("Call", systemImage: "phone.fill")
+                                .font(.henriiCallout)
+                                .frame(height: 44)
+                                .frame(maxWidth: .infinity)
+                                .background(HenriiColors.accentPrimary.opacity(0.12))
+                                .clipShape(.rect(cornerRadius: HenriiRadius.small))
+                        }
+                    }
+                    Link(destination: URL(string: "http://maps.apple.com")!) {
+                        Label("Directions", systemImage: "map.fill")
+                            .font(.henriiCallout)
+                            .frame(height: 44)
+                            .frame(maxWidth: .infinity)
+                            .background(HenriiColors.canvasPrimary)
+                            .clipShape(.rect(cornerRadius: HenriiRadius.small))
+                    }
+                }
+            }
+            .padding(HenriiSpacing.lg)
+            .background(HenriiColors.canvasElevated)
+            .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+        }
+    }
+
+    private var medicalNotesSection: some View {
+        let healthEvents = babyEvents.filter { $0.category == .health }
+        return VStack(alignment: .leading, spacing: HenriiSpacing.md) {
+            Text("Medical Notes")
+                .font(.henriiHeadline)
+                .foregroundStyle(HenriiColors.textPrimary)
+
+            if healthEvents.isEmpty {
+                Text("No medical notes yet.")
+                    .font(.henriiCallout)
+                    .foregroundStyle(HenriiColors.textSecondary)
+                    .padding(HenriiSpacing.lg)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(HenriiColors.canvasElevated)
+                    .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+            } else {
+                ForEach(healthEvents.prefix(5)) { event in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(event.summaryText)
+                                .font(.henriiCallout)
+                                .foregroundStyle(HenriiColors.textPrimary)
+                            Text(event.timestamp, format: .dateTime.month(.abbreviated).day().hour().minute())
+                                .font(.henriiCaption)
+                                .foregroundStyle(HenriiColors.textTertiary)
+                        }
+                        Spacer()
+                    }
+                    .padding(HenriiSpacing.lg)
+                    .background(HenriiColors.canvasElevated)
+                    .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+                }
             }
         }
     }

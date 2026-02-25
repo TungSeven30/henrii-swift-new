@@ -136,6 +136,7 @@ struct HomeView: View {
                             selectedBabyIDs = [baby.id]
                         }
                         scheduleDailySummaryIfNeeded()
+                        DailyIntelligenceService.shared.maybeInsertMorningBriefing(baby: baby, context: modelContext)
                         handoffService.checkForHandoff(baby: baby, context: modelContext)
                     }
                 }
@@ -460,7 +461,7 @@ struct HomeView: View {
 
     private func scheduleDailySummaryIfNeeded() {
         let hour = Calendar.current.component(.hour, from: Date())
-        guard hour >= 18 else { return }
+        guard hour >= SettingsManager.shared.dailySummaryHour else { return }
         conversationVM.generateDailySummary(baby: baby, context: modelContext)
     }
 }

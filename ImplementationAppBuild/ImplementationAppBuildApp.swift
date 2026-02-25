@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UIKit
+import UserNotifications
 
 @main
 struct ImplementationAppBuildApp: App {
@@ -22,6 +23,11 @@ struct ImplementationAppBuildApp: App {
 
     init() {
         UIApplication.shared.applicationSupportsShakeToEdit = false
+        NotificationService.shared.registerCategories()
+        Task {
+            await NotificationService.shared.requestAuthorization()
+            NotificationService.shared.scheduleDailySummaryNotification(at: SettingsManager.shared.dailySummaryHour)
+        }
     }
 
     var body: some Scene {

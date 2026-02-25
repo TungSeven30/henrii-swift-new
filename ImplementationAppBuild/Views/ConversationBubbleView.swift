@@ -197,9 +197,9 @@ struct ConversationBubbleView: View {
         }
         .padding(HenriiSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(HenriiColors.semanticCelebration.opacity(0.08))
+        .background(HenriiColors.semanticCelebration.opacity(0.06))
         .clipShape(.rect(cornerRadius: HenriiRadius.medium))
-        .opacity(0.92)
+        .opacity(0.82)
     }
 
     private var nudgeCard: some View {
