@@ -3,6 +3,8 @@ import SwiftData
 import PhotosUI
 import UserNotifications
 import Speech
+import CoreImage.CIFilterBuiltins
+import UIKit
 
 struct OnboardingView: View {
     @Environment(\.modelContext) private var modelContext
@@ -17,10 +19,9 @@ struct OnboardingView: View {
     @State private var photoData: Data?
     @State private var isSaving: Bool = false
     @State private var partnerName: String = ""
-    @State private var showShareSheet: Bool = false
     @FocusState private var nameFieldFocused: Bool
 
-    private let totalSteps = 7
+    private let totalSteps = 8
 
     var body: some View {
         ZStack {
@@ -42,8 +43,9 @@ struct OnboardingView: View {
                     case 2: genderStep
                     case 3: birthDateStep
                     case 4: photoStep
-                    case 5: permissionsStep
-                    case 6: readyStep
+                    case 5: partnerInviteStep
+                    case 6: permissionsStep
+                    case 7: readyStep
                     default: EmptyView()
                     }
                 }
@@ -319,7 +321,67 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: - Step 5: Permissions
+    // MARK: - Step 5: Partner Invite
+
+    private var partnerInviteStep: some View {
+        VStack(spacing: HenriiSpacing.xl) {
+            VStack(spacing: HenriiSpacing.sm) {
+                Text("Want to invite your partner?")
+                    .font(.henriiTitle2)
+                    .foregroundStyle(HenriiColors.textPrimary)
+
+                Text("Share this private link so \(babyName)'s timeline stays in sync across both phones.")
+                    .font(.henriiCallout)
+                    .foregroundStyle(HenriiColors.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            VStack(spacing: HenriiSpacing.md) {
+                if let qrImage {
+                    Image(uiImage: qrImage)
+                        .interpolation(.none)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 170, height: 170)
+                        .padding(HenriiSpacing.md)
+                        .background(HenriiColors.canvasElevated)
+                        .clipShape(.rect(cornerRadius: HenriiRadius.large))
+                }
+
+                ShareLink(item: inviteURL, subject: Text("Join me on Henrii"), message: Text("Track \(babyName) together: \(inviteURL.absoluteString)")) {
+                    Label("Share Invite Link", systemImage: "square.and.arrow.up")
+                        .font(.henriiHeadline)
+                        .foregroundStyle(HenriiColors.accentPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 56)
+                        .background(HenriiColors.accentPrimary.opacity(0.12))
+                        .clipShape(.capsule)
+                }
+
+                Text(inviteURL.absoluteString)
+                    .font(.caption2)
+                    .foregroundStyle(HenriiColors.textTertiary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            VStack(spacing: HenriiSpacing.md) {
+                primaryButton("Continue") {
+                    advanceTo(6)
+                }
+
+                Button {
+                    advanceTo(6)
+                } label: {
+                    Text("Skip for now")
+                        .font(.henriiCallout)
+                        .foregroundStyle(HenriiColors.textSecondary)
+                }
+            }
+        }
+    }
+
+    // MARK: - Step 6: Permissions
 
     private var permissionsStep: some View {
         VStack(spacing: HenriiSpacing.xl) {
@@ -352,27 +414,36 @@ struct OnboardingView: View {
                 )
             }
             .padding(HenriiSpacing.lg)
-            .background(
-                RoundedRectangle(cornerRadius: HenriiRadius.large)
-                    .fill(.ultraThinMaterial)
-            )
+            .background(permissionCardBackground)
 
             VStack(spacing: HenriiSpacing.md) {
                 primaryButton("Allow All") {
                     Task {
                         await requestAllPermissions()
-                        advanceTo(6)
+                        advanceTo(7)
                     }
                 }
 
                 Button {
-                    advanceTo(6)
+                    advanceTo(7)
                 } label: {
                     Text("Maybe later")
                         .font(.henriiCallout)
                         .foregroundStyle(HenriiColors.textSecondary)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var permissionCardBackground: some View {
+        if #available(iOS 26.0, *) {
+            RoundedRectangle(cornerRadius: HenriiRadius.large)
+                .fill(HenriiColors.canvasElevated.opacity(0.001))
+                .glassEffect()
+        } else {
+            RoundedRectangle(cornerRadius: HenriiRadius.large)
+                .fill(.ultraThinMaterial)
         }
     }
 
@@ -399,7 +470,7 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: - Step 6: Ready
+    // MARK: - Step 7: Ready
 
     private var readyStep: some View {
         VStack(spacing: HenriiSpacing.xl) {
@@ -436,6 +507,24 @@ struct OnboardingView: View {
 
     private var trimmedName: String {
         babyName.trimmingCharacters(in: .whitespaces)
+    }
+
+    private var inviteURL: URL {
+        let encodedName = trimmedName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "baby"
+        return URL(string: "https://henrii.app/invite/\(encodedName)-\(Int(birthDate.timeIntervalSince1970))") ?? URL(string: "https://henrii.app/invite")!
+    }
+
+    private var qrImage: UIImage? {
+        let context = CIContext()
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(inviteURL.absoluteString.utf8)
+
+        guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 9, y: 9)),
+              let cgImage = context.createCGImage(output, from: output.extent) else {
+            return nil
+        }
+
+        return UIImage(cgImage: cgImage)
     }
 
     private func advanceTo(_ nextStep: Int) {

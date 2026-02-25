@@ -82,14 +82,23 @@ struct BabyProfileView: View {
 
     private var profileHeader: some View {
         VStack(spacing: HenriiSpacing.md) {
-            Circle()
-                .fill(HenriiColors.accentPrimary.opacity(0.12))
-                .frame(width: 88, height: 88)
-                .overlay {
-                    Text(baby.name.prefix(1))
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                        .foregroundStyle(HenriiColors.accentPrimary)
+            Group {
+                if let photoData = baby.photoData, let uiImage = UIImage(data: photoData) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } else {
+                    Circle()
+                        .fill(HenriiColors.accentPrimary.opacity(0.12))
+                        .overlay {
+                            Text(baby.name.prefix(1))
+                                .font(.system(size: 36, weight: .bold, design: .rounded))
+                                .foregroundStyle(HenriiColors.accentPrimary)
+                        }
                 }
+            }
+                .frame(width: 88, height: 88)
+                .clipShape(Circle())
 
             Text(baby.name)
                 .font(.henriiLargeTitle)

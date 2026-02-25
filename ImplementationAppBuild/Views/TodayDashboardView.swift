@@ -12,6 +12,7 @@ private nonisolated enum DashboardMode: String, CaseIterable, Identifiable, Send
 struct TodayDashboardView: View {
     let baby: Baby
     var onPinchBack: (() -> Void)?
+    var dashboardTransitionNamespace: Namespace.ID?
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.henriiReduceMotion) private var reduceMotion
@@ -23,6 +24,8 @@ struct TodayDashboardView: View {
     @State private var isLoading: Bool = true
     @State private var currentTime: Date = Date()
     @GestureState private var pinchScale: CGFloat = 1.0
+
+    @Namespace private var localTransitionNamespace
 
     private let rowHeight: CGFloat = 40
 
@@ -93,6 +96,7 @@ struct TodayDashboardView: View {
         .scaleEffect(pinchScale < 1.0 ? max(pinchScale, 0.85) : 1.0)
         .opacity(pinchScale < 1.0 ? max(pinchScale, 0.5) : 1.0)
         .gesture(pinchBackGesture)
+        .matchedGeometryEffect(id: "home.timeline.surface", in: dashboardTransitionNamespace ?? localTransitionNamespace, isSource: false)
         .task {
             if isLoading {
                 try? await Task.sleep(for: .milliseconds(280))

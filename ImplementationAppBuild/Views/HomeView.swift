@@ -8,6 +8,7 @@ struct HomeView: View {
     let onShowInsights: () -> Void
     let onShowProfile: () -> Void
     let onSwitchBaby: (Baby) -> Void
+    let dashboardTransitionNamespace: Namespace.ID
     @Environment(\.modelContext) private var modelContext
     @Environment(\.henriiReduceMotion) private var reduceMotion
     @State private var conversationVM = ConversationViewModel()
@@ -22,6 +23,7 @@ struct HomeView: View {
     @State private var showCalendarStrip: Bool = false
     @State private var filterDate: Date? = nil
     @State private var milestoneEventToEdit: BabyEvent?
+    @State private var searchPullProgress: CGFloat = 0
     @GestureState private var pinchScale: CGFloat = 1.0
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Query(sort: \ConversationEntry.timestamp, order: .reverse) private var allEntries: [ConversationEntry]
@@ -82,6 +84,11 @@ struct HomeView: View {
 
                 ScrollViewReader { proxy in
                     ScrollView {
+                        if searchPullProgress > 0 {
+                            searchPullIndicator
+                                .padding(.top, HenriiSpacing.sm)
+                                .padding(.bottom, HenriiSpacing.xs)
+                        }
                         LazyVStack(spacing: HenriiSpacing.md) {
                             if entries.isEmpty {
                                 emptyConversationState
@@ -135,6 +142,7 @@ struct HomeView: View {
             }
             .scaleEffect(pinchScale > 1.0 ? min(pinchScale, 1.15) : 1.0)
             .opacity(pinchScale > 1.0 ? max(1.0 - (pinchScale - 1.0) * CGFloat(3), 0.5) : 1.0)
+            .matchedGeometryEffect(id: "home.timeline.surface", in: dashboardTransitionNamespace, isSource: true)
 
             VStack(spacing: 0) {
                 if timerVM.isRunning {
@@ -213,6 +221,7 @@ struct HomeView: View {
         }
         .gesture(pinchGesture)
         .simultaneousGesture(swipeLeftGesture)
+        .simultaneousGesture(searchPullGesture)
         .sheet(isPresented: $showSearch) {
             SearchView(baby: baby, events: babyEvents, autoFocus: searchAutoFocus)
         }
@@ -259,11 +268,52 @@ struct HomeView: View {
                 if value.translation.width < -60 && abs(value.translation.height) < 80 {
                     onShowInsights()
                 }
-                if value.translation.height > 80 && abs(value.translation.width) < 60 {
+            }
+    }
+
+    private var searchPullGesture: some Gesture {
+        DragGesture(minimumDistance: 10)
+            .onChanged { value in
+                let startsInMidScreen = value.startLocation.y > 180 && value.startLocation.y < 460
+                let verticalOnly = abs(value.translation.width) < 60
+                guard startsInMidScreen, verticalOnly, value.translation.height > 0 else {
+                    if searchPullProgress > 0 {
+                        searchPullProgress = 0
+                    }
+                    return
+                }
+                searchPullProgress = min(value.translation.height / 110, 1)
+            }
+            .onEnded { value in
+                defer {
+                    withAnimation(.spring(duration: 0.25, bounce: 0.15)) {
+                        searchPullProgress = 0
+                    }
+                }
+                let startsInMidScreen = value.startLocation.y > 180 && value.startLocation.y < 460
+                let verticalOnly = abs(value.translation.width) < 60
+                guard startsInMidScreen, verticalOnly else { return }
+                if value.translation.height > 110 {
                     searchAutoFocus = true
                     showSearch = true
                 }
             }
+    }
+
+    private var searchPullIndicator: some View {
+        HStack(spacing: HenriiSpacing.xs) {
+            Image(systemName: "magnifyingglass")
+                .font(.caption)
+            Text(searchPullProgress >= 1 ? "Release to search" : "Pull down to search")
+                .font(.henriiCaption)
+        }
+        .foregroundStyle(HenriiColors.textSecondary)
+        .padding(.horizontal, HenriiSpacing.md)
+        .padding(.vertical, HenriiSpacing.xs)
+        .background(HenriiColors.canvasElevated)
+        .clipShape(.capsule)
+        .opacity(searchPullProgress)
+        .scaleEffect(0.92 + (searchPullProgress * 0.08))
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {

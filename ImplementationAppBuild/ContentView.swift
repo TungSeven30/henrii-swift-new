@@ -36,6 +36,7 @@ struct MainAppView: View {
     @State private var showToday: Bool = false
     @State private var showInsights: Bool = false
     @State private var showProfile: Bool = false
+    @Namespace private var dashboardTransitionNamespace
 
     var body: some View {
         NavigationStack {
@@ -47,10 +48,11 @@ struct MainAppView: View {
                 onShowProfile: { showProfile = true },
                 onSwitchBaby: { newBaby in
                     appVM.currentBabyID = newBaby.id.uuidString
-                }
+                },
+                dashboardTransitionNamespace: dashboardTransitionNamespace
             )
             .navigationDestination(isPresented: $showToday) {
-                TodayDashboardView(baby: baby, onPinchBack: { showToday = false })
+                TodayDashboardView(baby: baby, onPinchBack: { showToday = false }, dashboardTransitionNamespace: dashboardTransitionNamespace)
             }
             .navigationDestination(isPresented: $showInsights) {
                 InsightsView(baby: baby)
