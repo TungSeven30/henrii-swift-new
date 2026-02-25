@@ -5,6 +5,7 @@ struct TimerCardView: View {
     let onStop: ((category: EventCategory, duration: Double, side: FeedingType)?) -> Void
 
     @Environment(\.henriiReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var slideOffset: CGFloat = 0
     @State private var pulseScale: CGFloat = 1.0
     private let slideThreshold: CGFloat = 120
@@ -35,7 +36,7 @@ struct TimerCardView: View {
             }
 
             Text(timerVM.formattedTime)
-                .font(.henriiData(size: 48))
+                .font(.henriiData(size: dynamicTypeSize.isAccessibilitySize ? 40 : 48))
                 .foregroundStyle(HenriiColors.textPrimary)
                 .scaleEffect(reduceMotion ? 1.0 : pulseScale)
                 .animation(
@@ -46,6 +47,8 @@ struct TimerCardView: View {
                     if !reduceMotion { pulseScale = 1.02 }
                 }
                 .contentTransition(.numericText())
+                .accessibilityLabel("Timer elapsed")
+                .accessibilityValue(timerAccessibilityValue)
 
             HStack(spacing: HenriiSpacing.lg) {
                 Button {
@@ -63,6 +66,8 @@ struct TimerCardView: View {
                         .clipShape(Capsule())
                 }
                 .sensoryFeedback(.impact(weight: .medium), trigger: timerVM.isPaused)
+                .accessibilityLabel(timerVM.isPaused ? "Resume timer" : "Pause timer")
+                .accessibilityHint("Double-tap to toggle timer state")
 
                 slideToStopButton
             }
@@ -123,5 +128,14 @@ struct TimerCardView: View {
         }
         .frame(height: 52)
         .sensoryFeedback(.impact(weight: .heavy), trigger: slideOffset > slideThreshold)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Slide to stop timer")
+        .accessibilityHint("Drag right to stop and save")
+    }
+
+    private var timerAccessibilityValue: String {
+        let state = timerVM.isPaused ? "paused" : "active"
+        let category = timerVM.timerCategory == .sleep ? "Sleep" : "Feed"
+        return "\(category) timer \(state), \(timerVM.formattedTime) elapsed"
     }
 }

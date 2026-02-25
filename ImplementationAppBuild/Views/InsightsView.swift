@@ -3,6 +3,7 @@ import SwiftData
 
 struct InsightsView: View {
     let baby: Baby
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Query(sort: \BabyEvent.timestamp, order: .reverse) private var allEvents: [BabyEvent]
 
     private var babyEvents: [BabyEvent] {
@@ -66,21 +67,31 @@ struct InsightsView: View {
                         .font(.henriiCallout)
                         .foregroundStyle(HenriiColors.textSecondary)
 
-                    HStack(alignment: .bottom, spacing: 6) {
-                        ForEach(dailyCounts, id: \.day) { item in
-                            VStack(spacing: 4) {
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(HenriiColors.dataFeeding)
-                                    .frame(width: 28, height: max(8, CGFloat(item.count) * 12))
-
-                                Text(item.dayLabel)
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(HenriiColors.textTertiary)
+                    if dynamicTypeSize >= .accessibility4 {
+                        VStack(alignment: .leading, spacing: HenriiSpacing.xs) {
+                            ForEach(dailyCounts, id: \.day) { item in
+                                Text("\(item.dayLabel): \(item.count) feeds")
+                                    .font(.henriiCaption)
+                                    .foregroundStyle(HenriiColors.textSecondary)
                             }
                         }
+                    } else {
+                        HStack(alignment: .bottom, spacing: 6) {
+                            ForEach(dailyCounts, id: \.day) { item in
+                                VStack(spacing: 4) {
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(HenriiColors.dataFeeding)
+                                        .frame(width: 28, height: max(8, CGFloat(item.count) * 12))
+
+                                    Text(item.dayLabel)
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(HenriiColors.textTertiary)
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 120, alignment: .bottom)
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 120, alignment: .bottom)
                 }
             }
         }
@@ -103,21 +114,31 @@ struct InsightsView: View {
                         .font(.henriiCallout)
                         .foregroundStyle(HenriiColors.textSecondary)
 
-                    HStack(alignment: .bottom, spacing: 6) {
-                        ForEach(dailyMinutes, id: \.day) { item in
-                            VStack(spacing: 4) {
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(HenriiColors.dataSleep)
-                                    .frame(width: 28, height: max(8, CGFloat(item.minutes / 60) * 8))
-
-                                Text(item.dayLabel)
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(HenriiColors.textTertiary)
+                    if dynamicTypeSize >= .accessibility4 {
+                        VStack(alignment: .leading, spacing: HenriiSpacing.xs) {
+                            ForEach(dailyMinutes, id: \.day) { item in
+                                Text("\(item.dayLabel): \(String(format: "%.1f", item.minutes / 60))h")
+                                    .font(.henriiCaption)
+                                    .foregroundStyle(HenriiColors.textSecondary)
                             }
                         }
+                    } else {
+                        HStack(alignment: .bottom, spacing: 6) {
+                            ForEach(dailyMinutes, id: \.day) { item in
+                                VStack(spacing: 4) {
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(HenriiColors.dataSleep)
+                                        .frame(width: 28, height: max(8, CGFloat(item.minutes / 60) * 8))
+
+                                    Text(item.dayLabel)
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(HenriiColors.textTertiary)
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 120, alignment: .bottom)
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 120, alignment: .bottom)
                 }
             }
         }

@@ -9,6 +9,7 @@ final class TimerViewModel {
     var elapsedSeconds: Int = 0
     var timerCategory: EventCategory = .feeding
     var feedingSide: FeedingType = .breastLeft
+    var babyName: String = "Baby"
 
     private var timer: Timer?
 
@@ -35,30 +36,59 @@ final class TimerViewModel {
         restoreTimerIfNeeded()
     }
 
-    func startTimer(category: EventCategory) {
+    func startTimer(category: EventCategory, babyName: String) {
         timerCategory = category
+        self.babyName = babyName
         startTime = Date()
         isRunning = true
         isPaused = false
         elapsedSeconds = 0
         persistTimerState()
         startTicking()
+        Task {
+            await HenriiLiveActivityManager.shared.startTimerActivity(
+                babyName: babyName,
+                category: category,
+                elapsedSeconds: 0,
+                isPaused: false,
+                side: feedingSide
+            )
+        }
     }
 
     func pauseTimer() {
         isPaused = true
         timer?.invalidate()
         timer = nil
+        Task {
+            await HenriiLiveActivityManager.shared.updateTimerActivity(
+                category: timerCategory,
+                elapsedSeconds: elapsedSeconds,
+                isPaused: true,
+                side: feedingSide
+            )
+        }
     }
 
     func resumeTimer() {
         isPaused = false
         startTicking()
+        Task {
+            await HenriiLiveActivityManager.shared.updateTimerActivity(
+                category: timerCategory,
+                elapsedSeconds: elapsedSeconds,
+                isPaused: false,
+                side: feedingSide
+            )
+        }
     }
 
     func stopTimer() -> (category: EventCategory, duration: Double, side: FeedingType)? {
         guard isRunning else { return nil }
-        let result = (category: timerCategory, duration: elapsedMinutes, side: feedingSide)
+        let category = timerCategory
+        let seconds = elapsedSeconds
+        let side = feedingSide
+        let result = (category: category, duration: elapsedMinutes, side: side)
         timer?.invalidate()
         timer = nil
         isRunning = false
@@ -66,6 +96,9 @@ final class TimerViewModel {
         elapsedSeconds = 0
         startTime = nil
         clearPersistedTimer()
+        Task {
+            await HenriiLiveActivityManager.shared.endTimerActivity(category: category, elapsedSeconds: seconds, side: side)
+        }
         return result
     }
 
@@ -73,6 +106,14 @@ final class TimerViewModel {
         feedingSide = feedingSide == .breastLeft ? .breastRight : .breastLeft
         if isRunning {
             UserDefaults.standard.set(feedingSide.rawValue, forKey: sideKey)
+            Task {
+                await HenriiLiveActivityManager.shared.updateTimerActivity(
+                    category: timerCategory,
+                    elapsedSeconds: elapsedSeconds,
+                    isPaused: isPaused,
+                    side: feedingSide
+                )
+            }
         }
     }
 
@@ -85,6 +126,14 @@ final class TimerViewModel {
                     self.elapsedSeconds = Int(Date().timeIntervalSince(start))
                 } else {
                     self.elapsedSeconds += 1
+                }
+                Task {
+                    await HenriiLiveActivityManager.shared.updateTimerActivity(
+                        category: self.timerCategory,
+                        elapsedSeconds: self.elapsedSeconds,
+                        isPaused: self.isPaused,
+                        side: self.feedingSide
+                    )
                 }
             }
         }

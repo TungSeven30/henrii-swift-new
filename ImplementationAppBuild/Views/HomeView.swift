@@ -126,6 +126,11 @@ struct HomeView: View {
                         .padding(.top, HenriiSpacing.md)
                         .padding(.bottom, timerVM.isRunning ? 220 : 160)
                     }
+                    .accessibilityRotor("Conversation Entries") {
+                        ForEach(entries, id: \.id) { entry in
+                            AccessibilityRotorEntry(entry.text, id: entry.id)
+                        }
+                    }
                     .scrollDismissesKeyboard(.interactively)
                     .onChange(of: entries.count) { _, _ in
                         scrollToBottom(proxy)
@@ -386,7 +391,7 @@ struct HomeView: View {
         } else if let parsed, parsed.isSleepStart {
             conversationVM.processInput(text, baby: baby, context: modelContext)
             if !timerVM.isRunning {
-                timerVM.startTimer(category: .sleep)
+                timerVM.startTimer(category: .sleep, babyName: baby.name)
             }
         } else {
             conversationVM.processInput(text, baby: baby, context: modelContext)
@@ -396,9 +401,9 @@ struct HomeView: View {
     private func handleChipAction(_ action: ChipAction) {
         switch action {
         case .startFeed:
-            timerVM.startTimer(category: .feeding)
+            timerVM.startTimer(category: .feeding, babyName: baby.name)
         case .startSleep:
-            timerVM.startTimer(category: .sleep)
+            timerVM.startTimer(category: .sleep, babyName: baby.name)
         case .logDiaper(let type):
             withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.35, bounce: 0.2)) {
                 logForSelectedBabies { targetBaby in
