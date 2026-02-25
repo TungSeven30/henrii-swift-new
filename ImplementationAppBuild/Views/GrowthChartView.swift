@@ -98,6 +98,22 @@ struct GrowthChartView: View {
         .padding(HenriiSpacing.lg)
         .background(HenriiColors.canvasElevated)
         .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(growthChartAccessibilityLabel)
+        .accessibilityHint(weightEvents.isEmpty ? "Log a weight to start tracking." : "Long press a data point for details.")
+    }
+
+    private var growthChartAccessibilityLabel: String {
+        if weightEvents.isEmpty {
+            return "Growth percentiles chart. No weight measurements yet."
+        }
+        var label = "Growth percentiles chart."
+        if let latest = weightEvents.last, let weight = latest.weightLbs {
+            let who = WHOGrowthData.percentile(weightLbs: weight, ageMonths: baby.ageInMonths, gender: baby.gender)
+            label += " Latest weight: \(String(format: "%.1f", displayWeight(weight))) \(weightUnit), approximately \(who.percentile)th percentile."
+        }
+        label += " \(weightEvents.count) data point\(weightEvents.count == 1 ? "" : "s")."
+        return label
     }
 
     private func xPosition(for index: Int, total: Int, width: CGFloat) -> CGFloat {

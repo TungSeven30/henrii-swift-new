@@ -47,5 +47,8 @@ struct MilestoneTrackerView: View {
         .padding(HenriiSpacing.lg)
         .background(HenriiColors.canvasElevated)
         .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Milestone tracker. \(milestoneCount) milestones logged, expected around \(expectedCount) by now. \(Int(progress * 100)) percent complete.")
+        .accessibilityHint("Development varies by child.")
     }
 }

@@ -125,30 +125,51 @@ struct ConversationBubbleView: View {
 
     private var milestoneCard: some View {
         VStack(alignment: .leading, spacing: HenriiSpacing.md) {
-            HStack(spacing: HenriiSpacing.md) {
-                Circle()
-                    .fill(HenriiColors.dataGrowth.opacity(0.15))
-                    .frame(width: 36, height: 36)
-                    .overlay {
-                        Image(systemName: "star.fill")
-                            .font(.callout)
-                            .foregroundStyle(HenriiColors.dataGrowth)
+            Group {
+                if dynamicTypeSize >= .accessibility3 {
+                    VStack(alignment: .leading, spacing: HenriiSpacing.sm) {
+                        Circle()
+                            .fill(HenriiColors.dataGrowth.opacity(0.15))
+                            .frame(width: 36, height: 36)
+                            .overlay {
+                                Image(systemName: "star.fill")
+                                    .font(.callout)
+                                    .foregroundStyle(HenriiColors.dataGrowth)
+                            }
+                        Text(entry.text)
+                            .font(.henriiHeadline)
+                            .foregroundStyle(HenriiColors.textPrimary)
+                        Text(entry.timestamp, style: .time)
+                            .font(.henriiCaption)
+                            .foregroundStyle(HenriiColors.textTertiary)
                     }
+                } else {
+                    HStack(spacing: HenriiSpacing.md) {
+                        Circle()
+                            .fill(HenriiColors.dataGrowth.opacity(0.15))
+                            .frame(width: 36, height: 36)
+                            .overlay {
+                                Image(systemName: "star.fill")
+                                    .font(.callout)
+                                    .foregroundStyle(HenriiColors.dataGrowth)
+                            }
 
-                VStack(alignment: .leading, spacing: HenriiSpacing.xs) {
-                    Text(entry.text)
-                        .font(.henriiHeadline)
-                        .foregroundStyle(HenriiColors.textPrimary)
-                    Text(entry.timestamp, style: .time)
-                        .font(.henriiCaption)
-                        .foregroundStyle(HenriiColors.textTertiary)
+                        VStack(alignment: .leading, spacing: HenriiSpacing.xs) {
+                            Text(entry.text)
+                                .font(.henriiHeadline)
+                                .foregroundStyle(HenriiColors.textPrimary)
+                            Text(entry.timestamp, style: .time)
+                                .font(.henriiCaption)
+                                .foregroundStyle(HenriiColors.textTertiary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(HenriiColors.dataGrowth)
+                            .font(.title3)
+                    }
                 }
-
-                Spacer()
-
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(HenriiColors.dataGrowth)
-                    .font(.title3)
             }
 
             if let event, let photoData = event.milestonePhotoData, let uiImage = UIImage(data: photoData) {
@@ -204,6 +225,9 @@ struct ConversationBubbleView: View {
                 Label("Delete", systemImage: "trash")
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Milestone: \(entry.text)")
+        .accessibilityHint("Long press for options. Double-tap to edit details.")
     }
 
     private var insightCard: some View {
@@ -321,48 +345,92 @@ struct ConversationBubbleView: View {
 
     private var medicalFlagCard: some View {
         VStack(alignment: .leading, spacing: HenriiSpacing.md) {
-            HStack(spacing: HenriiSpacing.sm) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.title3)
-                    .foregroundStyle(HenriiColors.semanticAlert)
-
-                Text("Medical Alert")
-                    .font(.henriiHeadline)
-                    .foregroundStyle(HenriiColors.semanticAlert)
-
-                Spacer()
+            Group {
+                if dynamicTypeSize >= .accessibility3 {
+                    VStack(alignment: .leading, spacing: HenriiSpacing.sm) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.title3)
+                            .foregroundStyle(HenriiColors.semanticAlert)
+                        Text("Medical Alert")
+                            .font(.henriiHeadline)
+                            .foregroundStyle(HenriiColors.semanticAlert)
+                    }
+                } else {
+                    HStack(spacing: HenriiSpacing.sm) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.title3)
+                            .foregroundStyle(HenriiColors.semanticAlert)
+                        Text("Medical Alert")
+                            .font(.henriiHeadline)
+                            .foregroundStyle(HenriiColors.semanticAlert)
+                        Spacer()
+                    }
+                }
             }
 
             Text(entry.text)
                 .font(.henriiBody)
                 .foregroundStyle(HenriiColors.textPrimary)
 
-            HStack(spacing: HenriiSpacing.md) {
-                Button {
-                    let phone = SettingsManager.shared.pediatricianPhone
-                    let cleaned = phone.filter { $0.isNumber || $0 == "+" }
-                    if !cleaned.isEmpty, let url = URL(string: "tel://\(cleaned)") {
-                        UIApplication.shared.open(url)
-                    }
-                } label: {
-                    Label(pedButtonLabel, systemImage: "phone.fill")
-                        .font(.henriiCallout)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, HenriiSpacing.lg)
-                        .frame(height: 44)
-                        .background(HenriiColors.semanticAlert)
-                        .clipShape(Capsule())
-                }
-                .disabled(SettingsManager.shared.pediatricianPhone.isEmpty)
+            Group {
+                if dynamicTypeSize >= .accessibility3 {
+                    VStack(spacing: HenriiSpacing.sm) {
+                        Button {
+                            let phone = SettingsManager.shared.pediatricianPhone
+                            let cleaned = phone.filter { $0.isNumber || $0 == "+" }
+                            if !cleaned.isEmpty, let url = URL(string: "tel://\(cleaned)") {
+                                UIApplication.shared.open(url)
+                            }
+                        } label: {
+                            Label(pedButtonLabel, systemImage: "phone.fill")
+                                .font(.henriiCallout)
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 44)
+                                .background(HenriiColors.semanticAlert)
+                                .clipShape(Capsule())
+                        }
+                        .disabled(SettingsManager.shared.pediatricianPhone.isEmpty)
 
-                Button {
-                    onDismissMedical?()
-                } label: {
-                    Text("Dismiss")
-                        .font(.henriiCallout)
-                        .foregroundStyle(HenriiColors.textSecondary)
-                        .padding(.horizontal, HenriiSpacing.lg)
-                        .frame(height: 44)
+                        Button {
+                            onDismissMedical?()
+                        } label: {
+                            Text("Dismiss")
+                                .font(.henriiCallout)
+                                .foregroundStyle(HenriiColors.textSecondary)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 44)
+                        }
+                    }
+                } else {
+                    HStack(spacing: HenriiSpacing.md) {
+                        Button {
+                            let phone = SettingsManager.shared.pediatricianPhone
+                            let cleaned = phone.filter { $0.isNumber || $0 == "+" }
+                            if !cleaned.isEmpty, let url = URL(string: "tel://\(cleaned)") {
+                                UIApplication.shared.open(url)
+                            }
+                        } label: {
+                            Label(pedButtonLabel, systemImage: "phone.fill")
+                                .font(.henriiCallout)
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, HenriiSpacing.lg)
+                                .frame(height: 44)
+                                .background(HenriiColors.semanticAlert)
+                                .clipShape(Capsule())
+                        }
+                        .disabled(SettingsManager.shared.pediatricianPhone.isEmpty)
+
+                        Button {
+                            onDismissMedical?()
+                        } label: {
+                            Text("Dismiss")
+                                .font(.henriiCallout)
+                                .foregroundStyle(HenriiColors.textSecondary)
+                                .padding(.horizontal, HenriiSpacing.lg)
+                                .frame(height: 44)
+                        }
+                    }
                 }
             }
         }
@@ -627,20 +695,33 @@ struct ConversationBubbleView: View {
 
     private var handoffSummaryCard: some View {
         VStack(alignment: .leading, spacing: HenriiSpacing.md) {
-            HStack(spacing: HenriiSpacing.sm) {
-                Image(systemName: "arrow.right.arrow.left.circle.fill")
-                    .font(.title3)
-                    .foregroundStyle(HenriiColors.accentSecondary)
-
-                Text("Handoff Summary")
-                    .font(.henriiHeadline)
-                    .foregroundStyle(HenriiColors.textPrimary)
-
-                Spacer()
-
-                Text(entry.timestamp, style: .time)
-                    .font(.henriiCaption)
-                    .foregroundStyle(HenriiColors.textTertiary)
+            Group {
+                if dynamicTypeSize >= .accessibility3 {
+                    VStack(alignment: .leading, spacing: HenriiSpacing.sm) {
+                        Image(systemName: "arrow.right.arrow.left.circle.fill")
+                            .font(.title3)
+                            .foregroundStyle(HenriiColors.accentSecondary)
+                        Text("Handoff Summary")
+                            .font(.henriiHeadline)
+                            .foregroundStyle(HenriiColors.textPrimary)
+                        Text(entry.timestamp, style: .time)
+                            .font(.henriiCaption)
+                            .foregroundStyle(HenriiColors.textTertiary)
+                    }
+                } else {
+                    HStack(spacing: HenriiSpacing.sm) {
+                        Image(systemName: "arrow.right.arrow.left.circle.fill")
+                            .font(.title3)
+                            .foregroundStyle(HenriiColors.accentSecondary)
+                        Text("Handoff Summary")
+                            .font(.henriiHeadline)
+                            .foregroundStyle(HenriiColors.textPrimary)
+                        Spacer()
+                        Text(entry.timestamp, style: .time)
+                            .font(.henriiCaption)
+                            .foregroundStyle(HenriiColors.textTertiary)
+                    }
+                }
             }
 
             Text(entry.text)
