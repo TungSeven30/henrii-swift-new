@@ -19,6 +19,7 @@ struct BabyProfileView: View {
     @State private var selectedMedicalFilter: MedicalNotesFilter = .all
     @State private var showVaccinationExport: Bool = false
     @State private var vaccinationExportText: String = ""
+    @State private var showGrowthSheet: Bool = false
     @State private var settings = SettingsManager.shared
 
     private var babyEvents: [BabyEvent] {
@@ -71,7 +72,10 @@ struct BabyProfileView: View {
             AddVaccinationView(baby: baby, vaccination: vax)
         }
         .sheet(isPresented: $showVaccinationExport) {
-            VaccinationExportView(text: vaccinationExportText, babyName: baby.name)
+            VaccinationExportView(text: vaccinationExportText, babyName: baby.name, vaccinations: baby.vaccinations)
+        }
+        .sheet(isPresented: $showGrowthSheet) {
+            GrowthLogSheet(baby: baby, useMetric: settings.useMetric)
         }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -213,6 +217,20 @@ struct BabyProfileView: View {
             }
 
             GrowthChartView(baby: baby, growthEvents: growthEvents, useMetric: settings.useMetric)
+
+            Button { showGrowthSheet = true } label: {
+                HStack(spacing: HenriiSpacing.sm) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.callout)
+                    Text("Add Measurement")
+                        .font(.henriiCallout)
+                }
+                .foregroundStyle(HenriiColors.accentPrimary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .background(HenriiColors.accentPrimary.opacity(0.1))
+                .clipShape(.rect(cornerRadius: HenriiRadius.small))
+            }
 
             if growthEvents.isEmpty {
                 HStack {

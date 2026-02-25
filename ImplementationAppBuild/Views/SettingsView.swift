@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UserNotifications
 
 struct SettingsView: View {
     let baby: Baby
@@ -91,6 +92,11 @@ struct SettingsView: View {
                 Section {
                     Toggle("Feeding reminders", isOn: $settings.feedingNotifications)
                         .tint(HenriiColors.accentPrimary)
+                        .onChange(of: settings.feedingNotifications) { _, enabled in
+                            if !enabled {
+                                UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["feeding-reminder"])
+                            }
+                        }
 
                     if settings.feedingNotifications {
                         Stepper("Remind after \(String(format: "%.0f", settings.feedingReminderIntervalHours))h", value: $settings.feedingReminderIntervalHours, in: 1...6, step: 0.5)
@@ -100,12 +106,20 @@ struct SettingsView: View {
                         .tint(HenriiColors.accentPrimary)
                     Toggle("Medication alerts", isOn: $settings.medicationNotifications)
                         .tint(HenriiColors.accentPrimary)
+                        .onChange(of: settings.medicationNotifications) { _, enabled in
+                            if !enabled {
+                                UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["medication-pre", "medication-due"])
+                            }
+                        }
 
                     if settings.medicationNotifications {
                         Stepper("Pre-alert \(settings.medicationPreAlertMinutes) min before", value: $settings.medicationPreAlertMinutes, in: 5...60, step: 5)
                     }
 
                     Stepper("Daily summary at \(settings.dailySummaryHour):00", value: $settings.dailySummaryHour, in: 16...23)
+                        .onChange(of: settings.dailySummaryHour) { _, newHour in
+                            NotificationService.shared.scheduleDailySummaryNotification(at: newHour)
+                        }
                 } header: {
                     Text("Notifications")
                 }

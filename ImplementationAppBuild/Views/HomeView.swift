@@ -53,6 +53,21 @@ struct HomeView: View {
         babies.count > 1
     }
 
+    private var journalFilteredEntries: [ConversationEntry] {
+        guard agingOutService.milestoneJournalMode else { return entries }
+        return entries.filter { entry in
+            switch entry.type {
+            case .userMessage, .daySeparator, .system, .celebration, .medicalFlag, .handoffSummary, .dailySummary:
+                return true
+            case .confirmation:
+                guard let event = eventFor(entry) else { return true }
+                return event.category == .milestone || event.category == .growth || event.category == .health
+            case .insight, .nudge, .collapsedGroup, .queryResponse:
+                return true
+            }
+        }
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             HenriiColors.canvasPrimary
@@ -100,7 +115,7 @@ struct HomeView: View {
                                 emptyConversationState
                             }
 
-                            ForEach(Array(entries), id: \.id) { entry in
+                            ForEach(Array(journalFilteredEntries), id: \.id) { entry in
                                 ConversationBubbleView(
                                     entry: entry,
                                     event: eventFor(entry),
@@ -262,7 +277,7 @@ struct HomeView: View {
             if !isShowing { searchAutoFocus = false }
         }
         .sheet(isPresented: $showGrowthSheet) {
-            GrowthLogSheet(baby: baby)
+            GrowthLogSheet(baby: baby, useMetric: SettingsManager.shared.useMetric)
         }
         .sheet(item: $milestoneEventToEdit) { event in
             MilestoneDetailSheet(event: event)

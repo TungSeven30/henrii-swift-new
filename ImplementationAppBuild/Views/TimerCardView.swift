@@ -143,9 +143,13 @@ struct TimerCardView: View {
         } else {
             durationText = "\(minutes) minute\(minutes == 1 ? "" : "s")"
         }
-        if timerVM.isPaused {
-            return "\(category) timer paused. \(durationText) elapsed. Double-tap resume to continue."
+        var sideText = ""
+        if timerVM.timerCategory == .feeding {
+            sideText = timerVM.feedingSide == .breastLeft ? " Left side." : " Right side."
         }
-        return "\(category) timer active. \(durationText) elapsed. Slide right to stop."
+        if timerVM.isPaused {
+            return "\(category) timer paused. \(durationText) elapsed.\(sideText) Swipe right to resume."
+        }
+        return "\(category) timer active. \(durationText) elapsed.\(sideText) Swipe right to pause."
     }
 }

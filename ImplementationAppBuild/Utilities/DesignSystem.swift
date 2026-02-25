@@ -78,13 +78,25 @@ enum HenriiRadius {
 
 enum HenriiMotion {
     static let cardAppear: Animation = .spring(duration: 0.35, bounce: 0.2)
+    static let cardMorph: Animation = .spring(duration: 0.25, bounce: 0.1)
     static let chipAppear: Animation = .spring(duration: 0.2, bounce: 0.15)
+    static let screenTransition: Animation = .easeInOut(duration: 0.3)
     static let timerPulse: Animation = .easeInOut(duration: 2.0).repeatForever(autoreverses: true)
     static let reducedMotion: Animation = .easeInOut(duration: 0.15)
 
     static func preferred(reduceMotion: Bool) -> Animation {
         reduceMotion ? .easeInOut(duration: 0.15) : cardAppear
     }
+}
+
+enum HenriiHaptics {
+    static let logConfirm: SensoryFeedback = .success
+    static let timerStart: SensoryFeedback = .impact(weight: .medium)
+    static let timerStop: SensoryFeedback = .impact(weight: .heavy)
+    static let timerPause: SensoryFeedback = .impact(weight: .medium)
+    static let chipSelect: SensoryFeedback = .selection
+    static let destructive: SensoryFeedback = .warning
+    static let undo: SensoryFeedback = .success
 }
 
 extension Font {
