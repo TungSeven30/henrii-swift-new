@@ -14,6 +14,7 @@ struct HomeView: View {
     @State private var conversationVM = ConversationViewModel()
     @State private var timerVM = TimerViewModel()
     @State private var handoffService = HandoffService()
+    @State private var agingOutService = AgingOutService.shared
     @State private var showSearch: Bool = false
     @State private var searchAutoFocus: Bool = false
     @State private var showGrowthSheet: Bool = false
@@ -66,7 +67,8 @@ struct HomeView: View {
                     onTapInsights: onShowInsights,
                     onTapAvatar: onShowProfile,
                     onTapSearch: { showSearch = true },
-                    onSwitchBaby: onSwitchBaby
+                    onSwitchBaby: onSwitchBaby,
+                    isOffline: !NetworkMonitor.shared.isConnected
                 )
 
                 if showCalendarStrip {
@@ -162,6 +164,8 @@ struct HomeView: View {
                         scheduleDailySummaryIfNeeded()
                         DailyIntelligenceService.shared.maybeInsertMorningBriefing(baby: baby, context: modelContext)
                         handoffService.checkForHandoff(baby: baby, context: modelContext)
+                        agingOutService.evaluateUsage(baby: baby, context: modelContext)
+                        processPendingIntentActions()
                     }
                 }
             }
@@ -186,7 +190,7 @@ struct HomeView: View {
                     )
                 }
 
-                ContextChipsView(baby: baby, events: babyEvents) { action in
+                ContextChipsView(baby: baby, events: babyEvents, reducedMode: agingOutService.reducedChipMode) { action in
                     handleChipAction(action)
                 }
 
@@ -487,5 +491,39 @@ struct HomeView: View {
         let hour = Calendar.current.component(.hour, from: Date())
         guard hour >= SettingsManager.shared.dailySummaryHour else { return }
         conversationVM.generateDailySummary(baby: baby, context: modelContext)
+    }
+
+    private func processPendingIntentActions() {
+        let defaults = UserDefaults(suiteName: "group.app.rork.henrii") ?? .standard
+        guard let actions = defaults.array(forKey: "pendingIntentActions") as? [[String: String]], !actions.isEmpty else { return }
+        defaults.removeObject(forKey: "pendingIntentActions")
+
+        for action in actions {
+            guard let type = action["type"] else { continue }
+            switch type {
+            case "feeding":
+                let oz = action["amountOz"].flatMap { Double($0) }
+                withAnimation {
+                    conversationVM.quickLog(category: .feeding, baby: baby, context: modelContext, feedingType: .bottle, amountOz: oz)
+                }
+            case "diaper":
+                let dType: DiaperType
+                switch action["diaperType"] {
+                case "dirty": dType = .dirty
+                case "both": dType = .both
+                default: dType = .wet
+                }
+                withAnimation {
+                    conversationVM.quickLog(category: .diaper, baby: baby, context: modelContext, diaperType: dType)
+                }
+            case "startTimer":
+                let category: EventCategory = action["category"] == "feeding" ? .feeding : .sleep
+                if !timerVM.isRunning {
+                    timerVM.startTimer(category: category, babyName: baby.name)
+                }
+            default:
+                break
+            }
+        }
     }
 }

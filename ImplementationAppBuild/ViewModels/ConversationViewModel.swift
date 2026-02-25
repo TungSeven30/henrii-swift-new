@@ -864,33 +864,37 @@ final class ConversationViewModel {
         let sleeps = todayEvents.filter { $0.category == .sleep }
         let diapers = todayEvents.filter { $0.category == .diaper }
 
-        let lastFeedText: String
-        if let lastFeed = feeds.first {
-            let interval = Date().timeIntervalSince(lastFeed.timestamp)
-            let minutes = Int(interval / 60)
-            if minutes < 1 {
-                lastFeedText = "Last feed just now"
-            } else if minutes < 60 {
-                lastFeedText = "Last feed \(minutes)m ago"
-            } else {
-                let hours = minutes / 60
-                lastFeedText = "Last feed \(hours)h ago"
-            }
-        } else {
-            lastFeedText = "No feeds today yet"
-        }
+        let defaults = UserDefaults(suiteName: "group.app.rork.henrii") ?? .standard
+
+        defaults.set(lastEventText("feed", events: feeds), forKey: "widgetLastFeedText")
+        defaults.set(lastEventText("diaper", events: diapers), forKey: "widgetLastDiaperText")
+        defaults.set(lastEventText("sleep", events: sleeps), forKey: "widgetLastSleepText")
 
         let sleepHours = sleeps.compactMap(\.durationMinutes).reduce(0, +) / 60
         let statusText = "\(feeds.count) feeds, \(String(format: "%.1f", sleepHours))h sleep, \(diapers.count) diapers today"
 
-        let defaults = UserDefaults(suiteName: "group.app.rork.henrii") ?? .standard
-        defaults.set(lastFeedText, forKey: "widgetLastFeedText")
         defaults.set(statusText, forKey: "widgetStatusText")
         defaults.set(feeds.count, forKey: "widgetFeedCount")
         defaults.set(sleepHours, forKey: "widgetSleepHours")
         defaults.set(diapers.count, forKey: "widgetDiaperCount")
 
         WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    private func lastEventText(_ label: String, events: [BabyEvent]) -> String {
+        guard let last = events.first else {
+            return "No \(label)s today yet"
+        }
+        let interval = Date().timeIntervalSince(last.timestamp)
+        let minutes = Int(interval / 60)
+        if minutes < 1 {
+            return "Last \(label) just now"
+        } else if minutes < 60 {
+            return "Last \(label) \(minutes)m ago"
+        } else {
+            let hours = minutes / 60
+            return "Last \(label) \(hours)h ago"
+        }
     }
 
     private func ordinal(_ n: Int) -> String {

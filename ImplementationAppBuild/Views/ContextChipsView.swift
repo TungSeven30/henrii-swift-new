@@ -14,6 +14,7 @@ nonisolated enum ChipAction: Sendable {
 struct ContextChipsView: View {
     let baby: Baby
     let events: [BabyEvent]
+    var reducedMode: Bool = false
     let onAction: (ChipAction) -> Void
 
     var body: some View {
@@ -91,6 +92,10 @@ struct ContextChipsView: View {
     }
 
     private var suggestedChips: [ChipData] {
+        if reducedMode {
+            return reducedChips
+        }
+
         let lastEvent = events
             .sorted { $0.timestamp > $1.timestamp }
             .first
@@ -114,6 +119,13 @@ struct ContextChipsView: View {
         }
 
         return defaultChips
+    }
+
+    private var reducedChips: [ChipData] {
+        [
+            ChipData(emoji: "\u{2B50}", label: "Milestone", action: .logGrowth),
+            ChipData(emoji: "\u{1F4CF}", label: "Growth", action: .logGrowth),
+        ]
     }
 
     private var postFeedingChips: [ChipData] {

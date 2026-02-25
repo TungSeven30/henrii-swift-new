@@ -9,6 +9,7 @@ struct StatusHeaderView: View {
     let onTapAvatar: () -> Void
     var onTapSearch: (() -> Void)?
     var onSwitchBaby: ((Baby) -> Void)?
+    var isOffline: Bool = false
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
@@ -27,6 +28,15 @@ struct StatusHeaderView: View {
                 }
 
                 Spacer()
+
+                if isOffline {
+                    Image(systemName: "icloud.slash")
+                        .font(.caption)
+                        .foregroundStyle(HenriiColors.textTertiary)
+                        .frame(width: 32, height: 32)
+                        .accessibilityLabel("Offline")
+                        .accessibilityHint("Data will sync when connection is restored")
+                }
 
                 if let onTapSearch {
                     Button { onTapSearch() } label: {

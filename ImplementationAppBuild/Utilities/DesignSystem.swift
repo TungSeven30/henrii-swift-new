@@ -76,6 +76,17 @@ enum HenriiRadius {
     static let large: CGFloat = 16
 }
 
+enum HenriiMotion {
+    static let cardAppear: Animation = .spring(duration: 0.35, bounce: 0.2)
+    static let chipAppear: Animation = .spring(duration: 0.2, bounce: 0.15)
+    static let timerPulse: Animation = .easeInOut(duration: 2.0).repeatForever(autoreverses: true)
+    static let reducedMotion: Animation = .easeInOut(duration: 0.15)
+
+    static func preferred(reduceMotion: Bool) -> Animation {
+        reduceMotion ? .easeInOut(duration: 0.15) : cardAppear
+    }
+}
+
 extension Font {
     static let henriiLargeTitle: Font = .system(.largeTitle, design: .rounded, weight: .bold)
     static let henriiTitle2: Font = .system(.title2, design: .rounded, weight: .bold)
