@@ -54,6 +54,9 @@ struct ComposerView: View {
         }
         .padding(.horizontal, HenriiSpacing.margin)
         .padding(.bottom, HenriiSpacing.sm)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Composer")
+        .accessibilityHint("Type or hold microphone to speak")
         .onChange(of: speechService.transcript) { _, newValue in
             if !newValue.isEmpty {
                 text = newValue

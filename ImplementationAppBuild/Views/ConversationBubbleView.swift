@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ConversationBubbleView: View {
     @Environment(\.henriiReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let entry: ConversationEntry
     let event: BabyEvent?
     let onDelete: () -> Void
@@ -60,35 +61,27 @@ struct ConversationBubbleView: View {
                 .background(HenriiColors.accentPrimary)
                 .clipShape(.rect(cornerRadius: 20, style: .continuous))
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("You said: \(entry.text)")
     }
 
     private var confirmationCard: some View {
-        HStack(spacing: HenriiSpacing.md) {
-            if let event {
-                Circle()
-                    .fill(Color(event.categoryColor).opacity(0.15))
-                    .frame(width: 36, height: 36)
-                    .overlay {
-                        Image(systemName: event.icon)
-                            .font(.callout)
-                            .foregroundStyle(Color(event.categoryColor))
-                    }
+        Group {
+            if dynamicTypeSize >= .accessibility3 {
+                VStack(alignment: .leading, spacing: HenriiSpacing.md) {
+                    confirmationIcon
+                    confirmationContent
+                }
+            } else {
+                HStack(spacing: HenriiSpacing.md) {
+                    confirmationIcon
+                    confirmationContent
+                    Spacer()
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(HenriiColors.dataGrowth)
+                        .font(.title3)
+                }
             }
-
-            VStack(alignment: .leading, spacing: HenriiSpacing.xs) {
-                Text(entry.text)
-                    .font(.henriiHeadline)
-                    .foregroundStyle(HenriiColors.textPrimary)
-                Text(entry.timestamp, style: .time)
-                    .font(.henriiCaption)
-                    .foregroundStyle(HenriiColors.textTertiary)
-            }
-
-            Spacer()
-
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(HenriiColors.dataGrowth)
-                .font(.title3)
         }
         .padding(HenriiSpacing.lg)
         .background(HenriiColors.canvasElevated)
@@ -99,6 +92,34 @@ struct ConversationBubbleView: View {
             } label: {
                 Label("Delete", systemImage: "trash")
             }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Logged: \(entry.text)")
+        .accessibilityHint("Long press for options. Swipe left to delete.")
+    }
+
+    @ViewBuilder
+    private var confirmationIcon: some View {
+        if let event {
+            Circle()
+                .fill(Color(event.categoryColor).opacity(0.15))
+                .frame(width: 36, height: 36)
+                .overlay {
+                    Image(systemName: event.icon)
+                        .font(.callout)
+                        .foregroundStyle(Color(event.categoryColor))
+                }
+        }
+    }
+
+    private var confirmationContent: some View {
+        VStack(alignment: .leading, spacing: HenriiSpacing.xs) {
+            Text(entry.text)
+                .font(.henriiHeadline)
+                .foregroundStyle(HenriiColors.textPrimary)
+            Text(entry.timestamp, style: .time)
+                .font(.henriiCaption)
+                .foregroundStyle(HenriiColors.textTertiary)
         }
     }
 
@@ -200,6 +221,9 @@ struct ConversationBubbleView: View {
         .background(HenriiColors.semanticCelebration.opacity(0.06))
         .clipShape(.rect(cornerRadius: HenriiRadius.medium))
         .opacity(0.82)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Insight: \(entry.text)")
+        .accessibilityHint("Double-tap for details.")
     }
 
     private var nudgeCard: some View {
@@ -216,6 +240,8 @@ struct ConversationBubbleView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(HenriiColors.canvasElevated.opacity(0.5))
         .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Reminder: \(entry.text)")
     }
 
     private var celebrationCard: some View {
@@ -238,6 +264,8 @@ struct ConversationBubbleView: View {
             )
         )
         .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Celebration: \(entry.text)")
     }
 
     private var systemBubble: some View {
@@ -306,6 +334,9 @@ struct ConversationBubbleView: View {
             RoundedRectangle(cornerRadius: HenriiRadius.medium)
                 .strokeBorder(HenriiColors.semanticAlert.opacity(0.3), lineWidth: 1)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Medical alert: \(entry.text)")
+        .accessibilityHint("Important. Requires explicit dismissal. Double-tap for actions.")
     }
 
     private var dailySummaryCard: some View {
@@ -326,32 +357,40 @@ struct ConversationBubbleView: View {
                     .foregroundStyle(HenriiColors.textTertiary)
             }
 
-            HStack(spacing: HenriiSpacing.xl) {
-                summaryRing(
-                    value: Double(entry.summaryFeedCount),
-                    maxValue: 10,
-                    color: HenriiColors.dataFeeding,
-                    icon: "drop.fill",
-                    label: "\(entry.summaryFeedCount) feeds"
-                )
+            if dynamicTypeSize >= .accessibility3 {
+                VStack(alignment: .leading, spacing: HenriiSpacing.sm) {
+                    summaryTextRow(icon: "drop.fill", label: "\(entry.summaryFeedCount) feeds", color: HenriiColors.dataFeeding)
+                    summaryTextRow(icon: "moon.fill", label: String(format: "%.1fh sleep", entry.summarySleepHours), color: HenriiColors.dataSleep)
+                    summaryTextRow(icon: "leaf.fill", label: "\(entry.summaryDiaperCount) diapers", color: HenriiColors.dataDiaper)
+                }
+            } else {
+                HStack(spacing: HenriiSpacing.xl) {
+                    summaryRing(
+                        value: Double(entry.summaryFeedCount),
+                        maxValue: 10,
+                        color: HenriiColors.dataFeeding,
+                        icon: "drop.fill",
+                        label: "\(entry.summaryFeedCount) feeds"
+                    )
 
-                summaryRing(
-                    value: entry.summarySleepHours,
-                    maxValue: 16,
-                    color: HenriiColors.dataSleep,
-                    icon: "moon.fill",
-                    label: String(format: "%.1fh sleep", entry.summarySleepHours)
-                )
+                    summaryRing(
+                        value: entry.summarySleepHours,
+                        maxValue: 16,
+                        color: HenriiColors.dataSleep,
+                        icon: "moon.fill",
+                        label: String(format: "%.1fh sleep", entry.summarySleepHours)
+                    )
 
-                summaryRing(
-                    value: Double(entry.summaryDiaperCount),
-                    maxValue: 12,
-                    color: HenriiColors.dataDiaper,
-                    icon: "leaf.fill",
-                    label: "\(entry.summaryDiaperCount) diapers"
-                )
+                    summaryRing(
+                        value: Double(entry.summaryDiaperCount),
+                        maxValue: 12,
+                        color: HenriiColors.dataDiaper,
+                        icon: "leaf.fill",
+                        label: "\(entry.summaryDiaperCount) diapers"
+                    )
+                }
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
 
             Text(entry.text)
                 .font(.henriiCallout)
@@ -361,6 +400,9 @@ struct ConversationBubbleView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.ultraThinMaterial)
         .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Daily summary: \(entry.summaryFeedCount) feeds, \(String(format: "%.1f", entry.summarySleepHours)) hours sleep, \(entry.summaryDiaperCount) diapers. \(entry.text)")
+        .accessibilityHint("Double-tap for full day breakdown.")
     }
 
     private func summaryRing(value: Double, maxValue: Double, color: Color, icon: String, label: String) -> some View {
@@ -384,6 +426,17 @@ struct ConversationBubbleView: View {
             Text(label)
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(HenriiColors.textTertiary)
+        }
+    }
+
+    private func summaryTextRow(icon: String, label: String, color: Color) -> some View {
+        HStack(spacing: HenriiSpacing.sm) {
+            Image(systemName: icon)
+                .font(.callout)
+                .foregroundStyle(color)
+            Text(label)
+                .font(.henriiCallout)
+                .foregroundStyle(HenriiColors.textPrimary)
         }
     }
 
@@ -439,15 +492,27 @@ struct ConversationBubbleView: View {
             }
 
             if !dataPoints.isEmpty {
-                chartView(dataPoints: dataPoints, color: topicColor)
-                    .frame(height: 100)
-                    .padding(.top, HenriiSpacing.xs)
+                if dynamicTypeSize >= .accessibility4 {
+                    VStack(alignment: .leading, spacing: HenriiSpacing.xs) {
+                        ForEach(Array(dataPoints.enumerated()), id: \.offset) { _, point in
+                            Text("\(point.label): \(formatChartValue(point.value, topic: entry.queryTopicRaw))")
+                                .font(.henriiCaption)
+                                .foregroundStyle(HenriiColors.textSecondary)
+                        }
+                    }
+                } else {
+                    chartView(dataPoints: dataPoints, color: topicColor)
+                        .frame(height: 100)
+                        .padding(.top, HenriiSpacing.xs)
+                }
             }
         }
         .padding(HenriiSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(topicColor.opacity(0.08))
         .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Search result: \(entry.text)")
     }
 
     private func chartView(dataPoints: [(label: String, value: Double)], color: Color) -> some View {
@@ -582,6 +647,9 @@ struct ConversationBubbleView: View {
             RoundedRectangle(cornerRadius: HenriiRadius.medium)
                 .strokeBorder(HenriiColors.accentSecondary.opacity(0.15), lineWidth: 1)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Handoff summary: \(entry.text)")
+        .accessibilityHint("Shows what happened while you were away.")
     }
 
     private func handoffStatPill(icon: String, value: String, label: String, color: Color) -> some View {

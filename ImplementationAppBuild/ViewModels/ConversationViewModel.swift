@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 import SwiftUI
+import WidgetKit
 
 @Observable
 final class ConversationViewModel {
@@ -76,6 +77,7 @@ final class ConversationViewModel {
         checkMedicalFlag(baby: baby, event: event, context: context)
         collapseRecentIfNeeded(baby: baby, event: event, context: context)
         scheduleNotificationsIfNeeded(for: event, baby: baby)
+        updateWidgetData(baby: baby, context: context)
 
         composerText = ""
     }
@@ -106,6 +108,7 @@ final class ConversationViewModel {
         generateInsightIfNeeded(baby: baby, event: event, context: context)
         generateNudgeIfNeeded(baby: baby, event: event, context: context)
         scheduleNotificationsIfNeeded(for: event, baby: baby)
+        updateWidgetData(baby: baby, context: context)
     }
 
     func undoLastEvent(context: ModelContext) {
@@ -846,6 +849,48 @@ final class ConversationViewModel {
         for entry in toCollapse {
             context.delete(entry)
         }
+    }
+
+    func updateWidgetData(baby: Baby, context: ModelContext) {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        let descriptor = FetchDescriptor<BabyEvent>(
+            predicate: #Predicate { $0.timestamp >= todayStart },
+            sortBy: [SortDescriptor(\BabyEvent.timestamp, order: .reverse)]
+        )
+        let todayEvents = ((try? context.fetch(descriptor)) ?? []).filter { $0.baby?.id == baby.id }
+
+        let feeds = todayEvents.filter { $0.category == .feeding }
+        let sleeps = todayEvents.filter { $0.category == .sleep }
+        let diapers = todayEvents.filter { $0.category == .diaper }
+
+        let lastFeedText: String
+        if let lastFeed = feeds.first {
+            let interval = Date().timeIntervalSince(lastFeed.timestamp)
+            let minutes = Int(interval / 60)
+            if minutes < 1 {
+                lastFeedText = "Last feed just now"
+            } else if minutes < 60 {
+                lastFeedText = "Last feed \(minutes)m ago"
+            } else {
+                let hours = minutes / 60
+                lastFeedText = "Last feed \(hours)h ago"
+            }
+        } else {
+            lastFeedText = "No feeds today yet"
+        }
+
+        let sleepHours = sleeps.compactMap(\.durationMinutes).reduce(0, +) / 60
+        let statusText = "\(feeds.count) feeds, \(String(format: "%.1f", sleepHours))h sleep, \(diapers.count) diapers today"
+
+        let defaults = UserDefaults.standard
+        defaults.set(lastFeedText, forKey: "widgetLastFeedText")
+        defaults.set(statusText, forKey: "widgetStatusText")
+        defaults.set(feeds.count, forKey: "widgetFeedCount")
+        defaults.set(sleepHours, forKey: "widgetSleepHours")
+        defaults.set(diapers.count, forKey: "widgetDiaperCount")
+
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     private func ordinal(_ n: Int) -> String {

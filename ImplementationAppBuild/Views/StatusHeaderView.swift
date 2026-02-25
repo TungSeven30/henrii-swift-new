@@ -108,6 +108,19 @@ struct StatusHeaderView: View {
                 .font(.henriiCaption)
                 .foregroundStyle(HenriiColors.textSecondary)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(statusAccessibilityLabel(icon: icon, time: time))
+    }
+
+    private func statusAccessibilityLabel(icon: String, time: String) -> String {
+        let category: String
+        switch icon {
+        case "drop.fill": category = "Last feed"
+        case "moon.fill": category = "Last sleep"
+        case "leaf.fill": category = "Last diaper"
+        default: category = "Status"
+        }
+        return "\(category): \(time == "--" ? "no data" : "\(time) ago")"
     }
 
     private func timeSince(_ category: EventCategory) -> String {

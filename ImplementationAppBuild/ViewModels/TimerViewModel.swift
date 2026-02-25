@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import WidgetKit
 
 @Observable
 final class TimerViewModel {
@@ -12,6 +13,7 @@ final class TimerViewModel {
     var babyName: String = "Baby"
 
     private var timer: Timer?
+    private var lastLAUpdate: Int = 0
 
     private let startTimeKey = "timerStartTime"
     private let categoryKey = "timerCategory"
@@ -96,6 +98,8 @@ final class TimerViewModel {
         elapsedSeconds = 0
         startTime = nil
         clearPersistedTimer()
+        UserDefaults.standard.set("--:--", forKey: "widgetTimerText")
+        WidgetCenter.shared.reloadAllTimelines()
         Task {
             await HenriiLiveActivityManager.shared.endTimerActivity(category: category, elapsedSeconds: seconds, side: side)
         }
@@ -127,13 +131,17 @@ final class TimerViewModel {
                 } else {
                     self.elapsedSeconds += 1
                 }
-                Task {
-                    await HenriiLiveActivityManager.shared.updateTimerActivity(
-                        category: self.timerCategory,
-                        elapsedSeconds: self.elapsedSeconds,
-                        isPaused: self.isPaused,
-                        side: self.feedingSide
-                    )
+                UserDefaults.standard.set(self.formattedTime, forKey: "widgetTimerText")
+                if self.elapsedSeconds - self.lastLAUpdate >= 5 {
+                    self.lastLAUpdate = self.elapsedSeconds
+                    Task {
+                        await HenriiLiveActivityManager.shared.updateTimerActivity(
+                            category: self.timerCategory,
+                            elapsedSeconds: self.elapsedSeconds,
+                            isPaused: self.isPaused,
+                            side: self.feedingSide
+                        )
+                    }
                 }
             }
         }

@@ -86,6 +86,8 @@ struct ContextChipsView: View {
         .frame(height: 40)
         .background(HenriiColors.canvasElevated)
         .clipShape(Capsule())
+        .accessibilityLabel(chip.label)
+        .accessibilityHint(chip.isMenu ? "Double-tap for options" : "Double-tap to log")
     }
 
     private var suggestedChips: [ChipData] {
