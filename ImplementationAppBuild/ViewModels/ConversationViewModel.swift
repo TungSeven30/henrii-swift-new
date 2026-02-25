@@ -410,7 +410,8 @@ final class ConversationViewModel {
 
     private func scheduleNotificationsIfNeeded(for event: BabyEvent, baby: Baby) {
         if event.category == .feeding, settings.feedingNotifications {
-            notificationService.scheduleFeedingReminder()
+            let interval = settings.feedingReminderIntervalHours * 3600
+            notificationService.scheduleFeedingReminder(after: interval)
         }
 
         if event.category == .health,
@@ -419,9 +420,10 @@ final class ConversationViewModel {
            let dose = event.medicationDose,
            let dueDate = Calendar.current.date(byAdding: .hour, value: 4, to: event.timestamp) {
             notificationService.scheduleMedicationReminder(
-                title: "Medication Follow-up",
-                body: "\(medicationName) \(dose) is due soon for \(baby.name).",
-                date: dueDate
+                title: "Medication Due",
+                body: "\(medicationName) \(dose) is due for \(baby.name).",
+                date: dueDate,
+                preAlertMinutes: settings.medicationPreAlertMinutes
             )
         }
 

@@ -17,6 +17,9 @@ struct BabyProfileView: View {
     @State private var showAddVaccination: Bool = false
     @State private var editingVaccination: Vaccination?
     @State private var selectedMedicalFilter: MedicalNotesFilter = .all
+    @State private var showVaccinationExport: Bool = false
+    @State private var vaccinationExportText: String = ""
+    @State private var settings = SettingsManager.shared
 
     private var babyEvents: [BabyEvent] {
         allEvents.filter { $0.baby?.id == baby.id }
@@ -66,6 +69,9 @@ struct BabyProfileView: View {
         }
         .sheet(item: $editingVaccination) { vax in
             AddVaccinationView(baby: baby, vaccination: vax)
+        }
+        .sheet(isPresented: $showVaccinationExport) {
+            VaccinationExportView(text: vaccinationExportText, babyName: baby.name)
         }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -193,11 +199,20 @@ struct BabyProfileView: View {
 
     private var recentGrowthSection: some View {
         VStack(alignment: .leading, spacing: HenriiSpacing.md) {
-            Text("Growth")
-                .font(.henriiHeadline)
-                .foregroundStyle(HenriiColors.textPrimary)
+            HStack {
+                Text("Growth")
+                    .font(.henriiHeadline)
+                    .foregroundStyle(HenriiColors.textPrimary)
+                Spacer()
+                Picker("Units", selection: $settings.useMetric) {
+                    Text("lb/in").tag(false)
+                    Text("kg/cm").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 120)
+            }
 
-            GrowthChartView(baby: baby, growthEvents: growthEvents)
+            GrowthChartView(baby: baby, growthEvents: growthEvents, useMetric: settings.useMetric)
 
             if growthEvents.isEmpty {
                 HStack {
@@ -366,6 +381,16 @@ struct BabyProfileView: View {
                     .font(.henriiHeadline)
                     .foregroundStyle(HenriiColors.textPrimary)
                 Spacer()
+                if !baby.vaccinations.isEmpty {
+                    Button {
+                        vaccinationExportText = generateVaccinationCard()
+                        showVaccinationExport = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.callout)
+                            .foregroundStyle(HenriiColors.accentPrimary)
+                    }
+                }
                 Button { showAddVaccination = true } label: {
                     Image(systemName: "plus.circle.fill")
                         .font(.title3)
@@ -472,6 +497,25 @@ struct BabyProfileView: View {
     private func generateAndShowExport() {
         exportCSV = generateCSV()
         showExportSheet = true
+    }
+
+    private func generateVaccinationCard() -> String {
+        var lines: [String] = []
+        lines.append("VACCINATION RECORD")
+        lines.append("Name: \(baby.name)")
+        lines.append("DOB: \(baby.birthDate.formatted(.dateTime.month(.wide).day().year()))")
+        lines.append("")
+        lines.append(String(repeating: "─", count: 40))
+        let sorted = baby.vaccinations.sorted { $0.date < $1.date }
+        for vax in sorted {
+            lines.append("\(vax.date.formatted(.dateTime.month(.abbreviated).day().year()))  \(vax.name)")
+            if let notes = vax.notes, !notes.isEmpty {
+                lines.append("  Notes: \(notes)")
+            }
+        }
+        lines.append(String(repeating: "─", count: 40))
+        lines.append("Generated \(Date().formatted(.dateTime.month(.abbreviated).day().year()))")
+        return lines.joined(separator: "\n")
     }
 
     private func generateCSV() -> String {

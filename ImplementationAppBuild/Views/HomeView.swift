@@ -92,6 +92,10 @@ struct HomeView: View {
                                 .padding(.bottom, HenriiSpacing.xs)
                         }
                         LazyVStack(spacing: HenriiSpacing.md) {
+                            if agingOutService.milestoneJournalMode {
+                                milestoneJournalBanner
+                            }
+
                             if entries.isEmpty {
                                 emptyConversationState
                             }
@@ -351,6 +355,52 @@ struct HomeView: View {
                 proxy.scrollTo(last.id, anchor: .bottom)
             }
         }
+    }
+
+    private var milestoneJournalBanner: some View {
+        VStack(alignment: .leading, spacing: HenriiSpacing.sm) {
+            HStack(spacing: HenriiSpacing.sm) {
+                Image(systemName: "star.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(HenriiColors.semanticCelebration)
+                Text("Milestone Journal Mode")
+                    .font(.henriiHeadline)
+                    .foregroundStyle(HenriiColors.textPrimary)
+            }
+            Text("\(baby.name) is growing up! Focus on capturing milestones, firsts, and special moments.")
+                .font(.henriiCallout)
+                .foregroundStyle(HenriiColors.textSecondary)
+
+            let milestoneCount = babyEvents.filter { $0.category == .milestone }.count
+            HStack(spacing: HenriiSpacing.md) {
+                Label("\(milestoneCount) milestones", systemImage: "star.fill")
+                    .font(.henriiCaption)
+                    .foregroundStyle(HenriiColors.semanticCelebration)
+                Spacer()
+                Button {
+                    conversationVM.composerText = "milestone: "
+                } label: {
+                    Text("Log Milestone")
+                        .font(.henriiCaption)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, HenriiSpacing.md)
+                        .frame(height: 30)
+                        .background(HenriiColors.semanticCelebration)
+                        .clipShape(Capsule())
+                }
+            }
+        }
+        .padding(HenriiSpacing.lg)
+        .background(
+            LinearGradient(
+                colors: [HenriiColors.semanticCelebration.opacity(0.1), HenriiColors.semanticCelebration.opacity(0.03)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(.rect(cornerRadius: HenriiRadius.medium))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Milestone journal mode active. \(baby.name) has \(babyEvents.filter { $0.category == .milestone }.count) milestones logged.")
     }
 
     private var emptyConversationState: some View {

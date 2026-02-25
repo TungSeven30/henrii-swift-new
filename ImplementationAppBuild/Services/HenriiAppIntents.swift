@@ -22,7 +22,7 @@ struct LogFeedingIntent: AppIntent {
 
         let defaults = UserDefaults(suiteName: "group.app.rork.henrii") ?? .standard
         var pendingActions = defaults.array(forKey: "pendingIntentActions") as? [[String: String]] ?? []
-        var action: [String: String] = ["type": "feeding"]
+        var action: [String: String] = ["type": "feeding", "timestamp": ISO8601DateFormatter().string(from: Date())]
         if let oz = amount {
             action["amountOz"] = String(oz)
         }
@@ -45,7 +45,7 @@ struct StartTimerIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let defaults = UserDefaults(suiteName: "group.app.rork.henrii") ?? .standard
         var pendingActions = defaults.array(forKey: "pendingIntentActions") as? [[String: String]] ?? []
-        pendingActions.append(["type": "startTimer", "category": timerType.rawValue])
+        pendingActions.append(["type": "startTimer", "category": timerType.rawValue, "timestamp": ISO8601DateFormatter().string(from: Date())])
         defaults.set(pendingActions, forKey: "pendingIntentActions")
 
         return .result(dialog: IntentDialog(stringLiteral: "Starting \(timerType.localizedName) timer."))
@@ -65,14 +65,28 @@ struct QueryLastEventIntent: AppIntent {
         let defaults = UserDefaults(suiteName: "group.app.rork.henrii") ?? .standard
 
         let key: String
+        let countKey: String
         switch eventType {
-        case .feeding: key = "widgetLastFeedText"
-        case .diaper: key = "widgetLastDiaperText"
-        case .sleep: key = "widgetLastSleepText"
+        case .feeding:
+            key = "widgetLastFeedText"
+            countKey = "widgetFeedCount"
+        case .diaper:
+            key = "widgetLastDiaperText"
+            countKey = "widgetDiaperCount"
+        case .sleep:
+            key = "widgetLastSleepText"
+            countKey = "widgetSleepHours"
         }
 
         let lastText = defaults.string(forKey: key) ?? "No data available yet."
-        return .result(dialog: IntentDialog(stringLiteral: lastText))
+        let statusText = defaults.string(forKey: "widgetStatusText") ?? ""
+
+        var response = lastText
+        if !statusText.isEmpty {
+            response += " Today: \(statusText)"
+        }
+
+        return .result(dialog: IntentDialog(stringLiteral: response))
     }
 }
 
@@ -88,7 +102,7 @@ struct LogDiaperIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let defaults = UserDefaults(suiteName: "group.app.rork.henrii") ?? .standard
         var pendingActions = defaults.array(forKey: "pendingIntentActions") as? [[String: String]] ?? []
-        pendingActions.append(["type": "diaper", "diaperType": diaperType.rawValue])
+        pendingActions.append(["type": "diaper", "diaperType": diaperType.rawValue, "timestamp": ISO8601DateFormatter().string(from: Date())])
         defaults.set(pendingActions, forKey: "pendingIntentActions")
 
         return .result(dialog: IntentDialog(stringLiteral: "Logged a \(diaperType.localizedName) diaper change."))

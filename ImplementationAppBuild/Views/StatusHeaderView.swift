@@ -47,6 +47,8 @@ struct StatusHeaderView: View {
                             .background(HenriiColors.canvasElevated)
                             .clipShape(Circle())
                     }
+                    .accessibilityLabel("Search")
+                    .accessibilityHint("Search conversation history")
                 }
 
                 Button { onTapInsights() } label: {
@@ -57,6 +59,8 @@ struct StatusHeaderView: View {
                         .background(HenriiColors.canvasElevated)
                         .clipShape(Circle())
                 }
+                .accessibilityLabel("Insights")
+                .accessibilityHint("View growth charts and weekly trends")
 
                 Button { onTapAvatar() } label: {
                     Circle()
@@ -68,6 +72,8 @@ struct StatusHeaderView: View {
                                 .foregroundStyle(HenriiColors.accentPrimary)
                         }
                 }
+                .accessibilityLabel("\(baby.name)'s profile")
+                .accessibilityHint("View profile, vitals, and vaccinations")
             }
             .padding(.horizontal, HenriiSpacing.horizontalMargin(for: sizeClass))
             .padding(.vertical, HenriiSpacing.sm)

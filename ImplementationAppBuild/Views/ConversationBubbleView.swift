@@ -207,14 +207,26 @@ struct ConversationBubbleView: View {
     }
 
     private var insightCard: some View {
-        HStack(spacing: HenriiSpacing.md) {
-            Image(systemName: "lightbulb.fill")
-                .font(.title3)
-                .foregroundStyle(HenriiColors.semanticCelebration)
-
-            Text(entry.text)
-                .font(.henriiCallout)
-                .foregroundStyle(HenriiColors.textPrimary)
+        Group {
+            if dynamicTypeSize >= .accessibility3 {
+                VStack(alignment: .leading, spacing: HenriiSpacing.sm) {
+                    Image(systemName: "lightbulb.fill")
+                        .font(.title3)
+                        .foregroundStyle(HenriiColors.semanticCelebration)
+                    Text(entry.text)
+                        .font(.henriiCallout)
+                        .foregroundStyle(HenriiColors.textPrimary)
+                }
+            } else {
+                HStack(spacing: HenriiSpacing.md) {
+                    Image(systemName: "lightbulb.fill")
+                        .font(.title3)
+                        .foregroundStyle(HenriiColors.semanticCelebration)
+                    Text(entry.text)
+                        .font(.henriiCallout)
+                        .foregroundStyle(HenriiColors.textPrimary)
+                }
+            }
         }
         .padding(HenriiSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -227,14 +239,26 @@ struct ConversationBubbleView: View {
     }
 
     private var nudgeCard: some View {
-        HStack(spacing: HenriiSpacing.md) {
-            Image(systemName: "bell.fill")
-                .font(.callout)
-                .foregroundStyle(HenriiColors.accentSecondary)
-
-            Text(entry.text)
-                .font(.henriiCallout)
-                .foregroundStyle(HenriiColors.textSecondary)
+        Group {
+            if dynamicTypeSize >= .accessibility3 {
+                VStack(alignment: .leading, spacing: HenriiSpacing.xs) {
+                    Image(systemName: "bell.fill")
+                        .font(.callout)
+                        .foregroundStyle(HenriiColors.accentSecondary)
+                    Text(entry.text)
+                        .font(.henriiCallout)
+                        .foregroundStyle(HenriiColors.textSecondary)
+                }
+            } else {
+                HStack(spacing: HenriiSpacing.md) {
+                    Image(systemName: "bell.fill")
+                        .font(.callout)
+                        .foregroundStyle(HenriiColors.accentSecondary)
+                    Text(entry.text)
+                        .font(.henriiCallout)
+                        .foregroundStyle(HenriiColors.textSecondary)
+                }
+            }
         }
         .padding(HenriiSpacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -246,14 +270,26 @@ struct ConversationBubbleView: View {
     }
 
     private var celebrationCard: some View {
-        HStack(spacing: HenriiSpacing.md) {
-            Image(systemName: "party.popper")
-                .font(.title2)
-                .foregroundStyle(HenriiColors.semanticCelebration)
-
-            Text(entry.text)
-                .font(.henriiHeadline)
-                .foregroundStyle(HenriiColors.textPrimary)
+        Group {
+            if dynamicTypeSize >= .accessibility3 {
+                VStack(alignment: .leading, spacing: HenriiSpacing.sm) {
+                    Image(systemName: "party.popper")
+                        .font(.title2)
+                        .foregroundStyle(HenriiColors.semanticCelebration)
+                    Text(entry.text)
+                        .font(.henriiHeadline)
+                        .foregroundStyle(HenriiColors.textPrimary)
+                }
+            } else {
+                HStack(spacing: HenriiSpacing.md) {
+                    Image(systemName: "party.popper")
+                        .font(.title2)
+                        .foregroundStyle(HenriiColors.semanticCelebration)
+                    Text(entry.text)
+                        .font(.henriiHeadline)
+                        .foregroundStyle(HenriiColors.textPrimary)
+                }
+            }
         }
         .padding(HenriiSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -91,10 +91,19 @@ struct SettingsView: View {
                 Section {
                     Toggle("Feeding reminders", isOn: $settings.feedingNotifications)
                         .tint(HenriiColors.accentPrimary)
+
+                    if settings.feedingNotifications {
+                        Stepper("Remind after \(String(format: "%.0f", settings.feedingReminderIntervalHours))h", value: $settings.feedingReminderIntervalHours, in: 1...6, step: 0.5)
+                    }
+
                     Toggle("Sleep reminders", isOn: $settings.sleepNotifications)
                         .tint(HenriiColors.accentPrimary)
                     Toggle("Medication alerts", isOn: $settings.medicationNotifications)
                         .tint(HenriiColors.accentPrimary)
+
+                    if settings.medicationNotifications {
+                        Stepper("Pre-alert \(settings.medicationPreAlertMinutes) min before", value: $settings.medicationPreAlertMinutes, in: 5...60, step: 5)
+                    }
 
                     Stepper("Daily summary at \(settings.dailySummaryHour):00", value: $settings.dailySummaryHour, in: 16...23)
                 } header: {

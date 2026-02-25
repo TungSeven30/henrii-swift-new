@@ -40,6 +40,22 @@ final class SettingsManager {
         set { UserDefaults.standard.set(newValue, forKey: "feedingNotifications") }
     }
 
+    var feedingReminderIntervalHours: Double {
+        get {
+            let val = UserDefaults.standard.double(forKey: "feedingReminderIntervalHours")
+            return val == 0 ? 3.0 : val
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "feedingReminderIntervalHours") }
+    }
+
+    var medicationPreAlertMinutes: Int {
+        get {
+            let val = UserDefaults.standard.integer(forKey: "medicationPreAlertMinutes")
+            return val == 0 ? 15 : val
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "medicationPreAlertMinutes") }
+    }
+
     var sleepNotifications: Bool {
         get { UserDefaults.standard.object(forKey: "sleepNotifications") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "sleepNotifications") }

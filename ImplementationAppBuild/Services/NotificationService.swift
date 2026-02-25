@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import UserNotifications
 
 nonisolated enum NotificationCategoryID: String, Sendable {
@@ -44,9 +45,12 @@ nonisolated final class NotificationService: Sendable {
     }
 
     func scheduleFeedingReminder(after interval: TimeInterval = 3 * 60 * 60) {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["feeding-reminder"])
+
+        let hours = Int(interval / 3600)
         let content = UNMutableNotificationContent()
         content.title = "Feeding Reminder"
-        content.body = "It's been 3h since the last feed."
+        content.body = "It's been \(hours)h since the last feed."
         content.sound = nil
         content.categoryIdentifier = NotificationCategoryID.reminder.rawValue
 
@@ -55,7 +59,21 @@ nonisolated final class NotificationService: Sendable {
         UNUserNotificationCenter.current().add(request)
     }
 
-    func scheduleMedicationReminder(title: String, body: String, date: Date) {
+    func scheduleMedicationReminder(title: String, body: String, date: Date, preAlertMinutes: Int = 15) {
+        let preAlertDate = Calendar.current.date(byAdding: .minute, value: -preAlertMinutes, to: date) ?? date
+        if preAlertDate > Date() {
+            let preContent = UNMutableNotificationContent()
+            preContent.title = "Medication Coming Up"
+            preContent.body = "\(title.replacingOccurrences(of: "Medication Follow-up", with: body)) due in \(preAlertMinutes) minutes."
+            preContent.sound = nil
+            preContent.categoryIdentifier = NotificationCategoryID.medication.rawValue
+
+            let preComponents = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: preAlertDate)
+            let preTrigger = UNCalendarNotificationTrigger(dateMatching: preComponents, repeats: false)
+            let preRequest = UNNotificationRequest(identifier: "medication-pre-\(UUID().uuidString)", content: preContent, trigger: preTrigger)
+            UNUserNotificationCenter.current().add(preRequest)
+        }
+
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
@@ -84,12 +102,44 @@ nonisolated final class NotificationService: Sendable {
 
     func scheduleCelebrationNotification(title: String, body: String) {
         let content = UNMutableNotificationContent()
-        content.title = title
+        content.title = "\u{1F389} \(title)"
         content.body = body
         content.sound = .default
+
+        if let imageURL = createCelebrationImage() {
+            if let attachment = try? UNNotificationAttachment(identifier: "celebration-img", url: imageURL, options: nil) {
+                content.attachments = [attachment]
+            }
+        }
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let request = UNNotificationRequest(identifier: "celebration-\(UUID().uuidString)", content: content, trigger: trigger)
         UNUserNotificationCenter.current().add(request)
+    }
+
+    private func createCelebrationImage() -> URL? {
+        let size = CGSize(width: 100, height: 100)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        let image = renderer.image { ctx in
+            let rect = CGRect(origin: .zero, size: size)
+            UIColor.systemYellow.withAlphaComponent(0.2).setFill()
+            ctx.fill(rect)
+            let text = "\u{2B50}" as NSString
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 48)
+            ]
+            let textSize = text.size(withAttributes: attrs)
+            let textRect = CGRect(
+                x: (size.width - textSize.width) / 2,
+                y: (size.height - textSize.height) / 2,
+                width: textSize.width,
+                height: textSize.height
+            )
+            text.draw(in: textRect, withAttributes: attrs)
+        }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("celebration_\(UUID().uuidString).png")
+        guard let data = image.pngData() else { return nil }
+        try? data.write(to: url)
+        return url
     }
 }

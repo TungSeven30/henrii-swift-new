@@ -3,6 +3,7 @@ import SwiftUI
 struct GrowthChartView: View {
     let baby: Baby
     let growthEvents: [BabyEvent]
+    var useMetric: Bool = false
 
     @State private var selectedPoint: BabyEvent?
 
@@ -10,6 +11,14 @@ struct GrowthChartView: View {
         growthEvents
             .filter { $0.weightLbs != nil }
             .sorted { $0.timestamp < $1.timestamp }
+    }
+
+    private func displayWeight(_ lbs: Double) -> Double {
+        useMetric ? lbs * 0.453592 : lbs
+    }
+
+    private var weightUnit: String {
+        useMetric ? "kg" : "lbs"
     }
 
     var body: some View {
@@ -24,6 +33,9 @@ struct GrowthChartView: View {
                     Text("~\(who.percentile)th %ile")
                         .font(.henriiCaption)
                         .foregroundStyle(HenriiColors.textSecondary)
+                    Text(String(format: "%.1f %@", displayWeight(weight), weightUnit))
+                        .font(.henriiCaption)
+                        .foregroundStyle(HenriiColors.textTertiary)
                 }
             }
 
@@ -77,7 +89,7 @@ struct GrowthChartView: View {
                 .frame(height: 190)
 
                 if let selectedPoint, let weight = selectedPoint.weightLbs {
-                    Text("\(selectedPoint.timestamp, format: .dateTime.month().day()): \(String(format: "%.1f", weight)) lbs")
+                    Text("\(selectedPoint.timestamp, format: .dateTime.month().day()): \(String(format: "%.1f", displayWeight(weight))) \(weightUnit)")
                         .font(.henriiCaption)
                         .foregroundStyle(HenriiColors.textSecondary)
                 }

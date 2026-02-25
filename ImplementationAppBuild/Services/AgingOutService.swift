@@ -7,6 +7,7 @@ final class AgingOutService {
 
     var isAgingOut: Bool = false
     var reducedChipMode: Bool = false
+    var milestoneJournalMode: Bool = false
 
     private let rollingWindowDays: Int = 7
     private let lowThreshold: Int = 3
@@ -19,6 +20,7 @@ final class AgingOutService {
     private init() {
         isAgingOut = UserDefaults.standard.bool(forKey: agingOutKey)
         reducedChipMode = isAgingOut
+        milestoneJournalMode = isAgingOut
     }
 
     func evaluateUsage(baby: Baby, context: ModelContext) {
@@ -43,6 +45,7 @@ final class AgingOutService {
             if weekCount >= consecutiveWeeksRequired {
                 isAgingOut = true
                 reducedChipMode = true
+                milestoneJournalMode = true
                 UserDefaults.standard.set(true, forKey: agingOutKey)
             }
         } else {
@@ -50,6 +53,7 @@ final class AgingOutService {
             if isAgingOut {
                 isAgingOut = false
                 reducedChipMode = false
+                milestoneJournalMode = false
                 UserDefaults.standard.set(false, forKey: agingOutKey)
             }
         }
@@ -58,6 +62,7 @@ final class AgingOutService {
     func resetAgingOut() {
         isAgingOut = false
         reducedChipMode = false
+        milestoneJournalMode = false
         UserDefaults.standard.set(false, forKey: agingOutKey)
         UserDefaults.standard.set(0, forKey: lowWeekCountKey)
     }
