@@ -16,6 +16,7 @@ struct BabyProfileView: View {
     @State private var showHandoff: Bool = false
     @State private var showAddVaccination: Bool = false
     @State private var editingVaccination: Vaccination?
+    @State private var selectedMedicalFilter: MedicalNotesFilter = .all
 
     private var babyEvents: [BabyEvent] {
         allEvents.filter { $0.baby?.id == baby.id }
@@ -286,13 +287,34 @@ struct BabyProfileView: View {
 
     private var medicalNotesSection: some View {
         let healthEvents = babyEvents.filter { $0.category == .health }
+        let filteredEvents = healthEvents.filter { selectedMedicalFilter.matches(event: $0) }
+
         return VStack(alignment: .leading, spacing: HenriiSpacing.md) {
             Text("Medical Notes")
                 .font(.henriiHeadline)
                 .foregroundStyle(HenriiColors.textPrimary)
 
-            if healthEvents.isEmpty {
-                Text("No medical notes yet.")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: HenriiSpacing.sm) {
+                    ForEach(MedicalNotesFilter.allCases, id: \.self) { filter in
+                        Button {
+                            selectedMedicalFilter = filter
+                        } label: {
+                            Text(filter.title)
+                                .font(.henriiCaption)
+                                .foregroundStyle(selectedMedicalFilter == filter ? .white : HenriiColors.textPrimary)
+                                .padding(.horizontal, HenriiSpacing.md)
+                                .frame(height: 32)
+                                .background(selectedMedicalFilter == filter ? HenriiColors.accentPrimary : HenriiColors.canvasElevated)
+                                .clipShape(.capsule)
+                        }
+                    }
+                }
+            }
+            .contentMargins(.horizontal, 0)
+
+            if filteredEvents.isEmpty {
+                Text(healthEvents.isEmpty ? "No medical notes yet." : "No entries for this filter yet.")
                     .font(.henriiCallout)
                     .foregroundStyle(HenriiColors.textSecondary)
                     .padding(HenriiSpacing.lg)
@@ -300,7 +322,7 @@ struct BabyProfileView: View {
                     .background(HenriiColors.canvasElevated)
                     .clipShape(.rect(cornerRadius: HenriiRadius.medium))
             } else {
-                ForEach(healthEvents.prefix(5)) { event in
+                ForEach(filteredEvents.prefix(5)) { event in
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(event.summaryText)
@@ -414,6 +436,35 @@ struct BabyProfileView: View {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    nonisolated private enum MedicalNotesFilter: CaseIterable, Sendable {
+        case all
+        case fever
+        case medication
+        case symptoms
+
+        var title: String {
+            switch self {
+            case .all: "All"
+            case .fever: "Fever"
+            case .medication: "Medication"
+            case .symptoms: "Symptoms"
+            }
+        }
+
+        func matches(event: BabyEvent) -> Bool {
+            switch self {
+            case .all:
+                return true
+            case .fever:
+                return (event.temperatureF ?? 0) >= 100.4
+            case .medication:
+                return event.medicationName != nil
+            case .symptoms:
+                return !(event.symptoms?.isEmpty ?? true)
             }
         }
     }

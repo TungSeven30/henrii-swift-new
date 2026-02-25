@@ -11,6 +11,7 @@ final class ConversationViewModel {
     var recentInsight: String?
 
     private let settings = SettingsManager.shared
+    private let notificationService = NotificationService.shared
 
     func processInput(_ input: String, baby: Baby, context: ModelContext) {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -74,6 +75,7 @@ final class ConversationViewModel {
         generateNudgeIfNeeded(baby: baby, event: event, context: context)
         checkMedicalFlag(baby: baby, event: event, context: context)
         collapseRecentIfNeeded(baby: baby, event: event, context: context)
+        scheduleNotificationsIfNeeded(for: event, baby: baby)
 
         composerText = ""
     }
@@ -103,6 +105,7 @@ final class ConversationViewModel {
 
         generateInsightIfNeeded(baby: baby, event: event, context: context)
         generateNudgeIfNeeded(baby: baby, event: event, context: context)
+        scheduleNotificationsIfNeeded(for: event, baby: baby)
     }
 
     func undoLastEvent(context: ModelContext) {
@@ -349,7 +352,6 @@ final class ConversationViewModel {
 
     private func generateInsightIfNeeded(baby: Baby, event: BabyEvent, context: ModelContext) {
         guard settings.insightFrequency > 0.1 else { return }
-        guard settings.insightConfidenceThreshold <= 0.85 else { return }
 
         let calendar = Calendar.current
         if let lastDate = settings.lastAutoInsightDate, calendar.isDate(lastDate, inSameDayAs: Date()) {
@@ -368,30 +370,64 @@ final class ConversationViewModel {
         let sleepMinutes = babyTodayEvents.filter { $0.category == .sleep }.compactMap(\.durationMinutes).reduce(0, +)
 
         var insightText: String?
+        var confidence: Double = 0
+
         if feedCount == 8 && event.category == .feeding {
             insightText = "That's 8 feeds today — right on track for this age."
+            confidence = 0.9
         } else if feedCount == 4 && event.category == .feeding && settings.insightFrequency > 0.3 {
             insightText = "Halfway there — 4 feeds so far today."
+            confidence = 0.86
         } else if diaperCount == 6 && event.category == .diaper {
             insightText = "6 diapers today. Good hydration signs."
+            confidence = 0.89
         } else if sleepMinutes >= 600 && event.category == .sleep && event.durationMinutes != nil {
             let hours = Int(sleepMinutes) / 60
             insightText = "\(baby.name) has gotten about \(hours) hours of sleep today. That's solid."
+            confidence = 0.88
         } else if event.category == .feeding, let oz = event.amountOz, oz >= 6 {
             insightText = "That's a big feed! \(baby.name) was hungry."
+            confidence = 0.85
         } else if event.category == .growth, let weight = event.weightLbs {
             let whoResult = WHOGrowthData.percentile(weightLbs: weight, ageMonths: baby.ageInMonths, gender: baby.gender)
             if whoResult.percentile >= 50 {
                 insightText = "\(baby.name) crossed into about the \(ordinal(whoResult.percentile)) percentile for weight today."
+                confidence = 0.92
             }
         } else if event.category == .health, let temp = event.temperatureF, temp >= 100.4 {
             insightText = "⚠️ Temperature is \(String(format: "%.1f", temp))°F — that's above normal. Keep monitoring and contact your pediatrician if it persists."
+            confidence = 0.95
         }
 
-        guard let insightText else { return }
+        guard let insightText, confidence >= settings.insightConfidenceThreshold else { return }
         let insight = ConversationEntry(type: .insight, text: insightText, babyID: baby.id)
         context.insert(insight)
         settings.lastAutoInsightDate = Date()
+    }
+
+    private func scheduleNotificationsIfNeeded(for event: BabyEvent, baby: Baby) {
+        if event.category == .feeding, settings.feedingNotifications {
+            notificationService.scheduleFeedingReminder()
+        }
+
+        if event.category == .health,
+           settings.medicationNotifications,
+           let medicationName = event.medicationName,
+           let dose = event.medicationDose,
+           let dueDate = Calendar.current.date(byAdding: .hour, value: 4, to: event.timestamp) {
+            notificationService.scheduleMedicationReminder(
+                title: "Medication Follow-up",
+                body: "\(medicationName) \(dose) is due soon for \(baby.name).",
+                date: dueDate
+            )
+        }
+
+        if event.category == .milestone {
+            notificationService.scheduleCelebrationNotification(
+                title: "Milestone Reached",
+                body: "\(baby.name) just logged a new milestone."
+            )
+        }
     }
 
     private func handleQuery(_ parsed: ParsedEvent, baby: Baby, context: ModelContext) {
