@@ -26,6 +26,7 @@ struct HomeView: View {
     @State private var milestoneEventToEdit: BabyEvent?
     @State private var searchPullProgress: CGFloat = 0
     @GestureState private var pinchScale: CGFloat = 1.0
+    @FocusState private var composerFocused: Bool
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Query(sort: \ConversationEntry.timestamp, order: .reverse) private var allEntries: [ConversationEntry]
     @Query(sort: \BabyEvent.timestamp, order: .reverse) private var allEvents: [BabyEvent]
@@ -215,7 +216,8 @@ struct HomeView: View {
 
                 ComposerView(
                     text: $conversationVM.composerText,
-                    timerRunning: timerVM.isRunning
+                    timerRunning: timerVM.isRunning,
+                    isFocused: $composerFocused
                 ) { text in
                     withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.35, bounce: 0.2)) {
                         handleComposerInput(text)
@@ -309,6 +311,29 @@ struct HomeView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Enter the amount in ounces")
+        }
+        .overlay {
+            Group {
+                Button { composerFocused = true } label: { EmptyView() }
+                    .keyboardShortcut("n", modifiers: .command)
+                Button {
+                    if timerVM.isRunning {
+                        if let result = timerVM.stopTimer() {
+                            handleTimerStop(result)
+                        }
+                    } else {
+                        timerVM.startTimer(category: .sleep, babyName: baby.name)
+                    }
+                } label: { EmptyView() }
+                    .keyboardShortcut("t", modifiers: .command)
+                Button {
+                    searchAutoFocus = true
+                    showSearch = true
+                } label: { EmptyView() }
+                    .keyboardShortcut("f", modifiers: .command)
+            }
+            .frame(width: 0, height: 0)
+            .opacity(0)
         }
     }
 

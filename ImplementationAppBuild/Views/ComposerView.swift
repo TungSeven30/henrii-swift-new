@@ -4,7 +4,7 @@ struct ComposerView: View {
     @Binding var text: String
     let timerRunning: Bool
     let onSend: (String) -> Void
-    @FocusState private var isFocused: Bool
+    @Binding var isFocused: Bool
     @State private var speechService = SpeechService()
     @State private var isHoldingMic: Bool = false
     @Environment(\.henriiReduceMotion) private var reduceMotion

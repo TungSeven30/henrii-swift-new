@@ -44,16 +44,38 @@ struct InputParser {
     static var lastEventCategory: EventCategory?
 
     static func parse(_ input: String) -> ParsedEvent? {
-        let lower = input.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        var lower = input.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         if lower.isEmpty { return nil }
 
-        if let againResult = parseAgain(lower) { return againResult }
+        lower = stripPronouns(lower)
 
-        let resolved = resolvePronouns(lower)
+        var cleanedInput = lower
+        var customDate: Date?
 
-        let dateResult = extractDate(resolved)
-        let cleanedInput = dateResult?.cleanedInput ?? resolved
-        let customDate = dateResult?.date
+        if let relative = extractRelativeTime(lower) {
+            customDate = relative.date
+            cleanedInput = relative.cleanedInput
+        } else if var dateResult = extractDate(lower) {
+            cleanedInput = dateResult.cleanedInput
+            if let timeOfDay = extractTimeOfDay(cleanedInput) {
+                let calendar = Calendar.current
+                var components = calendar.dateComponents([.year, .month, .day], from: dateResult.date)
+                components.hour = timeOfDay.hour
+                components.minute = timeOfDay.minute
+                customDate = calendar.date(from: components)
+                cleanedInput = timeOfDay.cleanedInput
+            } else {
+                customDate = dateResult.date
+            }
+        } else if let timeOfDay = extractTimeOfDay(lower) {
+            let calendar = Calendar.current
+            let now = Date()
+            var components = calendar.dateComponents([.year, .month, .day], from: now)
+            components.hour = timeOfDay.hour
+            components.minute = timeOfDay.minute
+            customDate = calendar.date(from: components)
+            cleanedInput = timeOfDay.cleanedInput
+        }
 
         let multiChild = detectMultiChild(cleanedInput)
 
@@ -770,5 +792,98 @@ struct InputParser {
             }
         }
         return nil
+    }
+
+    private static func extractRelativeTime(_ input: String) -> (date: Date, cleanedInput: String)? {
+        let calendar = Calendar.current
+        let now = Date()
+
+        if let match = input.range(of: #"(\d+)\s*(min|minutes?|m\b)\s*(ago|before)"#, options: .regularExpression) {
+            let sub = String(input[match])
+            if let numMatch = sub.range(of: #"\d+"#, options: .regularExpression),
+               let mins = Int(sub[numMatch]), mins > 0, mins <= 1440 {
+                if let date = calendar.date(byAdding: .minute, value: -mins, to: now) {
+                    let cleaned = input.replacingOccurrences(of: sub, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+                    return (date, cleaned)
+                }
+            }
+        }
+        if let match = input.range(of: #"(an?\s+)?(\d+)\s*(h|hr|hours?)\s*(ago|before)"#, options: .regularExpression) {
+            let sub = String(input[match])
+            if let numMatch = sub.range(of: #"\d+"#, options: .regularExpression),
+               let hours = Int(sub[numMatch]), hours > 0, hours <= 168 {
+                if let date = calendar.date(byAdding: .hour, value: -hours, to: now) {
+                    let cleaned = input.replacingOccurrences(of: sub, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+                    return (date, cleaned)
+                }
+            }
+        }
+        if input.contains("an hour ago") || input.contains("a hour ago") {
+            let cleaned = input.replacingOccurrences(of: "an hour ago", with: "").replacingOccurrences(of: "a hour ago", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if let date = calendar.date(byAdding: .hour, value: -1, to: now) {
+                return (date, cleaned)
+            }
+        }
+        return nil
+    }
+
+    private static func extractTimeOfDay(_ input: String) -> (hour: Int, minute: Int, cleanedInput: String)? {
+        if input.contains("at noon") || input.contains("at 12 noon") {
+            let cleaned = input.replacingOccurrences(of: "at noon", with: "").replacingOccurrences(of: "at 12 noon", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return (12, 0, cleaned)
+        }
+        if input.contains("at midnight") {
+            let cleaned = input.replacingOccurrences(of: "at midnight", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return (0, 0, cleaned)
+        }
+        if let match = input.range(of: #"at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)"#, options: .regularExpression) {
+            let sub = String(input[match])
+            let hourMatch = sub.range(of: #"\d{1,2}"#, options: .regularExpression)
+            let minuteMatch = sub.range(of: #":\d{2}"#, options: .regularExpression)
+            let ampmMatch = sub.range(of: #"am|pm"#, options: .regularExpression)
+            guard let hrRange = hourMatch, let ampmRange = ampmMatch else { return nil }
+            let hrStr = String(sub[hrRange])
+            let hour = Int(hrStr) ?? 12
+            var minute = 0
+            if let minRange = minuteMatch {
+                let minStr = String(sub[minRange]).dropFirst()
+                minute = Int(String(minStr)) ?? 0
+            }
+            let ampm = String(sub[ampmRange])
+            var h = hour
+            if ampm == "pm" && hour < 12 { h = hour + 12 }
+            else if ampm == "am" && hour == 12 { h = 0 }
+            let cleaned = input.replacingOccurrences(of: sub, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return (h, minute, cleaned)
+        }
+        if let match = input.range(of: #"at\s+(\d{1,2}):(\d{2})"#, options: .regularExpression) {
+            let sub = String(input[match])
+            let parts = sub.components(separatedBy: ":")
+            guard parts.count >= 2,
+                  let h = Int(parts[0].filter { $0.isNumber }),
+                  let m = Int(parts[1].filter { $0.isNumber }), h < 24, m < 60 else { return nil }
+            let cleaned = input.replacingOccurrences(of: sub, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return (h, m, cleaned)
+        }
+        return nil
+    }
+
+    private static func stripPronouns(_ input: String) -> String {
+        let pronouns = [" she ", " he ", " her ", " him "]
+        var result = input
+        for p in pronouns {
+            result = result.replacingOccurrences(of: p, with: " ")
+        }
+        if result.hasPrefix("she ") { result = String(result.dropFirst(4)) }
+        if result.hasPrefix("he ") { result = String(result.dropFirst(3)) }
+        if result.hasPrefix("her ") { result = String(result.dropFirst(4)) }
+        if result.hasPrefix("him ") { result = String(result.dropFirst(4)) }
+        return result.components(separatedBy: .whitespaces).filter { !$0.isEmpty }.joined(separator: " ")
+    }
+
+    static func isRepeatRequest(_ input: String) -> Bool {
+        let lower = input.lowercased().trimmingCharacters(in: .whitespaces)
+        let phrases = ["again", "same again", "same", "repeat", "do it again", "one more", "same thing"]
+        return phrases.contains(lower)
     }
 }

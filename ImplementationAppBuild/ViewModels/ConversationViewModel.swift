@@ -23,6 +23,12 @@ final class ConversationViewModel {
         let userEntry = ConversationEntry(type: .userMessage, text: trimmed, babyID: baby.id)
         context.insert(userEntry)
 
+        if InputParser.isRepeatRequest(trimmed) {
+            handleRepeatLast(baby: baby, context: context)
+            composerText = ""
+            return
+        }
+
         guard let parsed = InputParser.parse(trimmed) else {
             let noteEntry = ConversationEntry(type: .system, text: "I didn't quite catch that. Try something like \"fed 4oz\" or \"diaper change\".", babyID: baby.id)
             context.insert(noteEntry)
@@ -169,6 +175,49 @@ final class ConversationViewModel {
         summary.summarySleepHours = sleepHours
         summary.summaryDiaperCount = diaperCount
         context.insert(summary)
+    }
+
+    private func handleRepeatLast(baby: Baby, context: ModelContext) {
+        let descriptor = FetchDescriptor<BabyEvent>(
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        guard let recentEvents = try? context.fetch(descriptor),
+              let lastEvent = recentEvents.first(where: { $0.baby?.id == baby.id }),
+              lastEvent.category != .note else {
+            let entry = ConversationEntry(type: .system, text: "No recent event to repeat. Log something first.", babyID: baby.id)
+            context.insert(entry)
+            return
+        }
+
+        let event = BabyEvent(category: lastEvent.category)
+        event.baby = baby
+        event.feedingType = lastEvent.feedingType
+        event.amountOz = lastEvent.amountOz
+        event.durationMinutes = lastEvent.durationMinutes
+        event.diaperType = lastEvent.diaperType
+        event.diaperColor = lastEvent.diaperColor
+        event.temperatureF = lastEvent.temperatureF
+        event.medicationName = lastEvent.medicationName
+        event.medicationDose = lastEvent.medicationDose
+        event.weightLbs = lastEvent.weightLbs
+        event.heightInches = lastEvent.heightInches
+        event.foodType = lastEvent.foodType
+        event.notes = lastEvent.notes
+        event.symptoms = lastEvent.symptoms
+        event.milestoneDescription = lastEvent.milestoneDescription
+        context.insert(event)
+
+        let confirmation = ConversationEntry(type: .confirmation, text: event.summaryText, eventID: event.id, babyID: baby.id)
+        context.insert(confirmation)
+        undoEvent = event
+        undoEntry = confirmation
+        showUndoToast = true
+        generateInsightIfNeeded(baby: baby, event: event, context: context)
+        generateNudgeIfNeeded(baby: baby, event: event, context: context)
+        checkMedicalFlag(baby: baby, event: event, context: context)
+        collapseRecentIfNeeded(baby: baby, event: event, context: context)
+        scheduleNotificationsIfNeeded(for: event, baby: baby)
+        updateWidgetData(baby: baby, context: context)
     }
 
     private func handleCorrection(_ parsed: ParsedEvent, baby: Baby, context: ModelContext) {
