@@ -26,7 +26,7 @@ struct HomeView: View {
     @State private var milestoneEventToEdit: BabyEvent?
     @State private var searchPullProgress: CGFloat = 0
     @GestureState private var pinchScale: CGFloat = 1.0
-    @FocusState private var composerFocused: Bool
+    @State private var composerFocused: Bool = false
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Query(sort: \ConversationEntry.timestamp, order: .reverse) private var allEntries: [ConversationEntry]
     @Query(sort: \BabyEvent.timestamp, order: .reverse) private var allEvents: [BabyEvent]
@@ -74,185 +74,11 @@ struct HomeView: View {
             HenriiColors.canvasPrimary
                 .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                StatusHeaderView(
-                    baby: baby,
-                    babies: babies,
-                    events: babyEvents,
-                    onTapStatus: onShowToday,
-                    onTapInsights: onShowInsights,
-                    onTapAvatar: onShowProfile,
-                    onTapSearch: { showSearch = true },
-                    onSwitchBaby: onSwitchBaby,
-                    isOffline: !NetworkMonitor.shared.isConnected
-                )
+            timelineContent
 
-                if showCalendarStrip {
-                    CalendarStripView { date in
-                        let calendar = Calendar.current
-                        if calendar.isDateInToday(date) {
-                            filterDate = nil
-                        } else {
-                            filterDate = date
-                        }
-                    }
-                    .padding(.vertical, HenriiSpacing.xs)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                }
+            bottomControls
 
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        if searchPullProgress > 0 {
-                            searchPullIndicator
-                                .padding(.top, HenriiSpacing.sm)
-                                .padding(.bottom, HenriiSpacing.xs)
-                        }
-                        LazyVStack(spacing: HenriiSpacing.md) {
-                            if agingOutService.milestoneJournalMode {
-                                milestoneJournalBanner
-                            }
-
-                            if entries.isEmpty {
-                                emptyConversationState
-                            }
-
-                            ForEach(Array(journalFilteredEntries), id: \.id) { entry in
-                                ConversationBubbleView(
-                                    entry: entry,
-                                    event: eventFor(entry),
-                                    onDelete: {
-                                        withAnimation {
-                                            if let event = eventFor(entry) {
-                                                conversationVM.deleteEvent(event, context: modelContext)
-                                            }
-                                            modelContext.delete(entry)
-                                        }
-                                    },
-                                    onDismissMedical: {
-                                        withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.3)) {
-                                            conversationVM.dismissMedicalFlag(entry)
-                                        }
-                                    },
-                                    onEditMilestone: { event in
-                                        milestoneEventToEdit = event
-                                    }
-                                )
-                                .id(entry.id)
-                                .transition(.asymmetric(
-                                    insertion: .move(edge: .bottom).combined(with: .opacity),
-                                    removal: .opacity
-                                ))
-                            }
-                        }
-                        .padding(.horizontal, HenriiSpacing.horizontalMargin(for: sizeClass))
-                        .padding(.top, HenriiSpacing.md)
-                        .padding(.bottom, timerVM.isRunning ? 220 : 160)
-                    }
-                    .accessibilityRotor("Conversation Entries") {
-                        ForEach(entries, id: \.id) { entry in
-                            AccessibilityRotorEntry(entry.text, id: entry.id)
-                        }
-                    }
-                    .accessibilityRotor("Edit Entry") {
-                        ForEach(entries.filter { $0.type == .confirmation }, id: \.id) { entry in
-                            AccessibilityRotorEntry("Edit \(entry.text)", id: entry.id) {
-                                milestoneEventToEdit = eventFor(entry)
-                            }
-                        }
-                    }
-                    .accessibilityRotor("Delete Entry") {
-                        ForEach(entries.filter { $0.type == .confirmation }, id: \.id) { entry in
-                            AccessibilityRotorEntry("Delete \(entry.text)", id: entry.id) {
-                                withAnimation {
-                                    if let event = eventFor(entry) {
-                                        conversationVM.deleteEvent(event, context: modelContext)
-                                    }
-                                    modelContext.delete(entry)
-                                }
-                            }
-                        }
-                    }
-                    .scrollDismissesKeyboard(.interactively)
-                    .onChange(of: entries.count) { _, _ in
-                        scrollToBottom(proxy)
-                    }
-                    .onAppear {
-                        scrollToBottom(proxy)
-                        if selectedBabyIDs.isEmpty {
-                            selectedBabyIDs = [baby.id]
-                        }
-                        scheduleDailySummaryIfNeeded()
-                        DailyIntelligenceService.shared.maybeInsertMorningBriefing(baby: baby, context: modelContext)
-                        handoffService.checkForHandoff(baby: baby, context: modelContext)
-                        agingOutService.evaluateUsage(baby: baby, context: modelContext)
-                        processPendingIntentActions()
-                    }
-                }
-            }
-            .scaleEffect(pinchScale > 1.0 ? min(pinchScale, 1.15) : 1.0)
-            .opacity(pinchScale > 1.0 ? max(1.0 - (pinchScale - 1.0) * CGFloat(3), 0.5) : 1.0)
-            .matchedGeometryEffect(id: "home.timeline.surface", in: dashboardTransitionNamespace, isSource: true)
-
-            VStack(spacing: 0) {
-                if timerVM.isRunning {
-                    TimerCardView(timerVM: timerVM) { result in
-                        handleTimerStop(result)
-                    }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .padding(.horizontal, HenriiSpacing.horizontalMargin(for: sizeClass))
-                }
-
-                if hasMultipleBabies {
-                    BabyToggleView(
-                        babies: babies,
-                        selectedBabyIDs: $selectedBabyIDs,
-                        onSwitch: onSwitchBaby
-                    )
-                }
-
-                ContextChipsView(baby: baby, events: babyEvents, reducedMode: agingOutService.reducedChipMode) { action in
-                    handleChipAction(action)
-                }
-
-                ComposerView(
-                    text: $conversationVM.composerText,
-                    timerRunning: timerVM.isRunning,
-                    isFocused: $composerFocused
-                ) { text in
-                    withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.35, bounce: 0.2)) {
-                        handleComposerInput(text)
-                    }
-                }
-            }
-            .background(
-                LinearGradient(
-                    stops: [
-                        .init(color: HenriiColors.canvasPrimary.opacity(0), location: 0),
-                        .init(color: HenriiColors.canvasPrimary, location: 0.15)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
-            )
-
-            if conversationVM.showUndoToast {
-                UndoToastView {
-                    withAnimation {
-                        conversationVM.undoLastEvent(context: modelContext)
-                    }
-                }
-                .transition(.move(edge: .top).combined(with: .opacity))
-                .padding(.top, 60)
-                .frame(maxHeight: .infinity, alignment: .top)
-                .onAppear {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-                        withAnimation {
-                            conversationVM.showUndoToast = false
-                        }
-                    }
-                }
-            }
+            undoOverlay
         }
         .sensoryFeedback(.success, trigger: conversationVM.showUndoToast)
         .animation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.35, bounce: 0.2), value: timerVM.isRunning)
@@ -284,20 +110,6 @@ struct HomeView: View {
         .sheet(item: $milestoneEventToEdit) { event in
             MilestoneDetailSheet(event: event)
         }
-        .background {
-            Group {
-                Button("") { showSearch = true; searchAutoFocus = true }
-                    .keyboardShortcut("f", modifiers: .command)
-                Button("") {
-                    if !timerVM.isRunning {
-                        timerVM.startTimer(category: .feeding, babyName: baby.name)
-                    }
-                }
-                    .keyboardShortcut("t", modifiers: .command)
-            }
-            .frame(width: 0, height: 0)
-            .opacity(0)
-        }
         .alert("Custom Amount", isPresented: $showCustomBottleAlert) {
             TextField("Ounces", text: $customBottleText)
                 .keyboardType(.decimalPad)
@@ -313,28 +125,204 @@ struct HomeView: View {
             Text("Enter the amount in ounces")
         }
         .overlay {
-            Group {
-                Button { composerFocused = true } label: { EmptyView() }
-                    .keyboardShortcut("n", modifiers: .command)
-                Button {
-                    if timerVM.isRunning {
-                        if let result = timerVM.stopTimer() {
-                            handleTimerStop(result)
-                        }
-                    } else {
-                        timerVM.startTimer(category: .sleep, babyName: baby.name)
-                    }
-                } label: { EmptyView() }
-                    .keyboardShortcut("t", modifiers: .command)
-                Button {
-                    searchAutoFocus = true
-                    showSearch = true
-                } label: { EmptyView() }
-                    .keyboardShortcut("f", modifiers: .command)
-            }
-            .frame(width: 0, height: 0)
-            .opacity(0)
+            keyboardShortcuts
         }
+    }
+
+    private var timelineContent: some View {
+        VStack(spacing: 0) {
+            StatusHeaderView(
+                baby: baby,
+                babies: babies,
+                events: babyEvents,
+                onTapStatus: onShowToday,
+                onTapInsights: onShowInsights,
+                onTapAvatar: onShowProfile,
+                onTapSearch: { showSearch = true },
+                onSwitchBaby: onSwitchBaby,
+                isOffline: !NetworkMonitor.shared.isConnected
+            )
+
+            if showCalendarStrip {
+                CalendarStripView { date in
+                    let calendar = Calendar.current
+                    if calendar.isDateInToday(date) {
+                        filterDate = nil
+                    } else {
+                        filterDate = date
+                    }
+                }
+                .padding(.vertical, HenriiSpacing.xs)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            ScrollViewReader { proxy in
+                conversationScrollView
+                    .scrollDismissesKeyboard(.interactively)
+                    .onChange(of: entries.count) { _, _ in
+                        scrollToBottom(proxy)
+                    }
+                    .onAppear {
+                        scrollToBottom(proxy)
+                        if selectedBabyIDs.isEmpty {
+                            selectedBabyIDs = [baby.id]
+                        }
+                        scheduleDailySummaryIfNeeded()
+                        DailyIntelligenceService.shared.maybeInsertMorningBriefing(baby: baby, context: modelContext)
+                        handoffService.checkForHandoff(baby: baby, context: modelContext)
+                        agingOutService.evaluateUsage(baby: baby, context: modelContext)
+                        processPendingIntentActions()
+                    }
+            }
+        }
+        .scaleEffect(pinchScale > 1.0 ? min(pinchScale, 1.15) : 1.0)
+        .opacity(pinchScale > 1.0 ? max(1.0 - (pinchScale - 1.0) * CGFloat(3), 0.5) : 1.0)
+        .matchedGeometryEffect(id: "home.timeline.surface", in: dashboardTransitionNamespace, isSource: true)
+    }
+
+    private var conversationScrollView: some View {
+        ScrollView {
+            if searchPullProgress > 0 {
+                searchPullIndicator
+                    .padding(.top, HenriiSpacing.sm)
+                    .padding(.bottom, HenriiSpacing.xs)
+            }
+            LazyVStack(spacing: HenriiSpacing.md) {
+                if agingOutService.milestoneJournalMode {
+                    milestoneJournalBanner
+                }
+
+                if entries.isEmpty {
+                    emptyConversationState
+                }
+
+                ForEach(Array(journalFilteredEntries), id: \.id) { entry in
+                    entryBubble(for: entry)
+                }
+            }
+            .padding(.horizontal, HenriiSpacing.horizontalMargin(for: sizeClass))
+            .padding(.top, HenriiSpacing.md)
+            .padding(.bottom, timerVM.isRunning ? 220 : 160)
+        }
+    }
+
+    private func entryBubble(for entry: ConversationEntry) -> some View {
+        ConversationBubbleView(
+            entry: entry,
+            event: eventFor(entry),
+            onDelete: {
+                withAnimation {
+                    if let event = eventFor(entry) {
+                        conversationVM.deleteEvent(event, context: modelContext)
+                    }
+                    modelContext.delete(entry)
+                }
+            },
+            onDismissMedical: {
+                withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.3)) {
+                    conversationVM.dismissMedicalFlag(entry)
+                }
+            },
+            onEditMilestone: { event in
+                milestoneEventToEdit = event
+            }
+        )
+        .id(entry.id)
+        .transition(.asymmetric(
+            insertion: .move(edge: .bottom).combined(with: .opacity),
+            removal: .opacity
+        ))
+    }
+
+    private var bottomControls: some View {
+        VStack(spacing: 0) {
+            if timerVM.isRunning {
+                TimerCardView(timerVM: timerVM) { result in
+                    handleTimerStop(result)
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .padding(.horizontal, HenriiSpacing.horizontalMargin(for: sizeClass))
+            }
+
+            if hasMultipleBabies {
+                BabyToggleView(
+                    babies: babies,
+                    selectedBabyIDs: $selectedBabyIDs,
+                    onSwitch: onSwitchBaby
+                )
+            }
+
+            ContextChipsView(baby: baby, events: babyEvents, reducedMode: agingOutService.reducedChipMode) { action in
+                handleChipAction(action)
+            }
+
+            ComposerView(
+                text: $conversationVM.composerText,
+                timerRunning: timerVM.isRunning,
+                onSend: { text in
+                    withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.35, bounce: 0.2)) {
+                        handleComposerInput(text)
+                    }
+                },
+                isFocused: $composerFocused
+            )
+        }
+        .background(
+            LinearGradient(
+                stops: [
+                    .init(color: HenriiColors.canvasPrimary.opacity(0), location: 0),
+                    .init(color: HenriiColors.canvasPrimary, location: 0.15)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        )
+    }
+
+    @ViewBuilder
+    private var undoOverlay: some View {
+        if conversationVM.showUndoToast {
+            UndoToastView {
+                withAnimation {
+                    conversationVM.undoLastEvent(context: modelContext)
+                }
+            }
+            .transition(.move(edge: .top).combined(with: .opacity))
+            .padding(.top, 60)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .onAppear {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                    withAnimation {
+                        conversationVM.showUndoToast = false
+                    }
+                }
+            }
+        }
+    }
+
+    private var keyboardShortcuts: some View {
+        Group {
+            Button { composerFocused = true } label: { EmptyView() }
+                .keyboardShortcut("n", modifiers: .command)
+            Button {
+                if timerVM.isRunning {
+                    if let result = timerVM.stopTimer() {
+                        handleTimerStop(result)
+                    }
+                } else {
+                    timerVM.startTimer(category: .sleep, babyName: baby.name)
+                }
+            } label: { EmptyView() }
+                .keyboardShortcut("t", modifiers: .command)
+            Button {
+                searchAutoFocus = true
+                showSearch = true
+            } label: { EmptyView() }
+                .keyboardShortcut("f", modifiers: .command)
+        }
+        .frame(width: 0, height: 0)
+        .opacity(0)
     }
 
     private var pinchGesture: some Gesture {

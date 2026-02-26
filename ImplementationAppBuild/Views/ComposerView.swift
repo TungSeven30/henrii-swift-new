@@ -5,6 +5,7 @@ struct ComposerView: View {
     let timerRunning: Bool
     let onSend: (String) -> Void
     @Binding var isFocused: Bool
+    @FocusState private var fieldFocused: Bool
     @State private var speechService = SpeechService()
     @State private var isHoldingMic: Bool = false
     @Environment(\.henriiReduceMotion) private var reduceMotion
@@ -15,7 +16,7 @@ struct ComposerView: View {
                 TextField("Tell Henrii...", text: $text)
                     .font(.henriiBody)
                     .foregroundStyle(HenriiColors.textPrimary)
-                    .focused($isFocused)
+                    .focused($fieldFocused)
                     .submitLabel(.send)
                     .onSubmit { send() }
 
@@ -57,6 +58,12 @@ struct ComposerView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Composer")
         .accessibilityHint("Type or hold microphone to speak")
+        .onChange(of: isFocused) { _, newValue in
+            fieldFocused = newValue
+        }
+        .onChange(of: fieldFocused) { _, newValue in
+            isFocused = newValue
+        }
         .onChange(of: speechService.transcript) { _, newValue in
             if !newValue.isEmpty {
                 text = newValue

@@ -115,7 +115,7 @@ struct InputParser {
     }
 
     private static func resolvePronouns(_ input: String) -> String {
-        var result = input
+        let result = input
         let pronounPatterns = [
             ("she's ", ""), ("he's ", ""), ("she ", ""), ("he ", ""),
             ("her ", ""), ("him ", ""),
@@ -665,9 +665,13 @@ struct InputParser {
             if input.contains(phrase.pattern) {
                 let cleaned = input.replacingOccurrences(of: phrase.pattern, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
                 if let date = calendar.date(byAdding: .day, value: -phrase.daysAgo, to: calendar.startOfDay(for: now)) {
-                    let timeHour = extractTimeOfDay(cleaned) ?? 12
-                    let targetDate = calendar.date(byAdding: .hour, value: timeHour, to: date)!
-                    let finalCleaned = stripTimeOfDay(cleaned)
+                    let timeResult = extractTimeOfDay(cleaned)
+                    let timeHour = timeResult?.hour ?? 12
+                    var targetDate = calendar.date(byAdding: .hour, value: timeHour, to: date)!
+                    if let mins = timeResult?.minute, mins > 0 {
+                        targetDate = calendar.date(byAdding: .minute, value: mins, to: targetDate)!
+                    }
+                    let finalCleaned = timeResult?.cleanedInput ?? stripTimeOfDay(cleaned)
                     return (targetDate, finalCleaned)
                 }
             }
@@ -679,9 +683,13 @@ struct InputParser {
                let days = Int(sub[numMatch]), days > 0, days <= 365 {
                 let cleaned = input.replacingOccurrences(of: sub, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
                 if let date = calendar.date(byAdding: .day, value: -days, to: calendar.startOfDay(for: now)) {
-                    let timeHour = extractTimeOfDay(cleaned) ?? 12
-                    let targetDate = calendar.date(byAdding: .hour, value: timeHour, to: date)!
-                    let finalCleaned = stripTimeOfDay(cleaned)
+                    let timeResult = extractTimeOfDay(cleaned)
+                    let timeHour = timeResult?.hour ?? 12
+                    var targetDate = calendar.date(byAdding: .hour, value: timeHour, to: date)!
+                    if let mins = timeResult?.minute, mins > 0 {
+                        targetDate = calendar.date(byAdding: .minute, value: mins, to: targetDate)!
+                    }
+                    let finalCleaned = timeResult?.cleanedInput ?? stripTimeOfDay(cleaned)
                     return (targetDate, finalCleaned)
                 }
             }
@@ -717,44 +725,7 @@ struct InputParser {
         return nil
     }
 
-    private static func extractTimeOfDay(_ input: String) -> Int? {
-        if input.contains("at noon") || input.contains("around noon") { return 12 }
-        if input.contains("at midnight") || input.contains("around midnight") { return 0 }
 
-        if let match = input.range(of: #"at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)"#, options: .regularExpression) {
-            let sub = String(input[match])
-            if let hourMatch = sub.range(of: #"\d{1,2}"#, options: .regularExpression) {
-                var hour = Int(sub[hourMatch]) ?? 12
-                let isPM = sub.contains("pm") || sub.contains("p.m.")
-                let isAM = sub.contains("am") || sub.contains("a.m.")
-                if isPM && hour < 12 { hour += 12 }
-                if isAM && hour == 12 { hour = 0 }
-                return hour
-            }
-        }
-
-        if let match = input.range(of: #"at\s+(\d{1,2})\s*(am|pm|a\.m\.|p\.m\.)"#, options: .regularExpression) {
-            let sub = String(input[match])
-            if let hourMatch = sub.range(of: #"\d{1,2}"#, options: .regularExpression) {
-                var hour = Int(sub[hourMatch]) ?? 12
-                let isPM = sub.contains("pm") || sub.contains("p.m.")
-                let isAM = sub.contains("am") || sub.contains("a.m.")
-                if isPM && hour < 12 { hour += 12 }
-                if isAM && hour == 12 { hour = 0 }
-                return hour
-            }
-        }
-
-        let namedTimes: [(String, Int)] = [
-            ("in the morning", 8), ("in the evening", 18), ("in the afternoon", 14),
-            ("this morning", 8), ("this evening", 18), ("this afternoon", 14),
-        ]
-        for (phrase, hour) in namedTimes {
-            if input.contains(phrase) { return hour }
-        }
-
-        return nil
-    }
 
     private static func stripTimeOfDay(_ input: String) -> String {
         var result = input

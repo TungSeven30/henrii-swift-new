@@ -10,7 +10,7 @@ struct ReduceMotionModifier: ViewModifier {
 }
 
 private struct HenriiReduceMotionKey: EnvironmentKey {
-    nonisolated(unsafe) static let defaultValue: Bool = false
+    static let defaultValue: Bool = false
 }
 
 extension EnvironmentValues {

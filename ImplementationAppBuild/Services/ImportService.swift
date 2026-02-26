@@ -22,7 +22,7 @@ final class ImportService {
             return
         }
 
-        let header = lines[0].lowercased()
+        let _ = lines[0].lowercased()
         let rows = Array(lines.dropFirst())
         var importedCount = 0
 
