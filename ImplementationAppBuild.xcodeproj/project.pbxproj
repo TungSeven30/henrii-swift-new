@@ -665,6 +665,10 @@
 				MARKETING_VERSION = 1.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
 				INFOPLIST_KEY_CFBundleDisplayName = "$(PRODUCT_NAME)";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				DEVELOPMENT_TEAM = "";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 			};
 			name = Debug;
 		};
@@ -688,6 +692,10 @@
 				MARKETING_VERSION = 1.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
 				INFOPLIST_KEY_CFBundleDisplayName = "$(PRODUCT_NAME)";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				DEVELOPMENT_TEAM = "";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 			};
 			name = Release;
 		};
