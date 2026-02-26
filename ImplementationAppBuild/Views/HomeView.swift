@@ -282,6 +282,20 @@ struct HomeView: View {
         .sheet(item: $milestoneEventToEdit) { event in
             MilestoneDetailSheet(event: event)
         }
+        .background {
+            Group {
+                Button("") { showSearch = true; searchAutoFocus = true }
+                    .keyboardShortcut("f", modifiers: .command)
+                Button("") {
+                    if !timerVM.isRunning {
+                        timerVM.startTimer(category: .feeding, babyName: baby.name)
+                    }
+                }
+                    .keyboardShortcut("t", modifiers: .command)
+            }
+            .frame(width: 0, height: 0)
+            .opacity(0)
+        }
         .alert("Custom Amount", isPresented: $showCustomBottleAlert) {
             TextField("Ounces", text: $customBottleText)
                 .keyboardType(.decimalPad)

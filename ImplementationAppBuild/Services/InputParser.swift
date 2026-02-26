@@ -41,28 +41,69 @@ nonisolated struct ParsedEvent: Sendable {
 }
 
 struct InputParser {
+    static var lastEventCategory: EventCategory?
+
     static func parse(_ input: String) -> ParsedEvent? {
         let lower = input.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         if lower.isEmpty { return nil }
 
-        let dateResult = extractDate(lower)
-        let cleanedInput = dateResult?.cleanedInput ?? lower
+        if let againResult = parseAgain(lower) { return againResult }
+
+        let resolved = resolvePronouns(lower)
+
+        let dateResult = extractDate(resolved)
+        let cleanedInput = dateResult?.cleanedInput ?? resolved
         let customDate = dateResult?.date
 
         let multiChild = detectMultiChild(cleanedInput)
 
         if let query = parseQuery(cleanedInput) { return query }
         if let correction = parseCorrection(cleanedInput) { return correction }
-        if let feeding = parseFeeding(cleanedInput) { return applyMultiChild(applyDate(feeding, customDate), multiChild) }
-        if let sleep = parseSleep(cleanedInput) { return applyMultiChild(applyDate(sleep, customDate), multiChild) }
-        if let diaper = parseDiaper(cleanedInput) { return applyMultiChild(applyDate(diaper, customDate), multiChild) }
-        if let health = parseHealth(cleanedInput) { return applyMultiChild(applyDate(health, customDate), multiChild) }
-        if let pump = parsePumping(cleanedInput) { return applyMultiChild(applyDate(pump, customDate), multiChild) }
-        if let growth = parseGrowth(cleanedInput) { return applyMultiChild(applyDate(growth, customDate), multiChild) }
-        if let activity = parseActivity(cleanedInput, raw: input) { return applyMultiChild(applyDate(activity, customDate), multiChild) }
-        if let milestone = parseMilestone(cleanedInput, raw: input) { return applyMultiChild(applyDate(milestone, customDate), multiChild) }
+        if let feeding = parseFeeding(cleanedInput) { trackLast(.feeding); return applyMultiChild(applyDate(feeding, customDate), multiChild) }
+        if let sleep = parseSleep(cleanedInput) { trackLast(.sleep); return applyMultiChild(applyDate(sleep, customDate), multiChild) }
+        if let diaper = parseDiaper(cleanedInput) { trackLast(.diaper); return applyMultiChild(applyDate(diaper, customDate), multiChild) }
+        if let health = parseHealth(cleanedInput) { trackLast(.health); return applyMultiChild(applyDate(health, customDate), multiChild) }
+        if let pump = parsePumping(cleanedInput) { trackLast(.pumping); return applyMultiChild(applyDate(pump, customDate), multiChild) }
+        if let growth = parseGrowth(cleanedInput) { trackLast(.growth); return applyMultiChild(applyDate(growth, customDate), multiChild) }
+        if let activity = parseActivity(cleanedInput, raw: input) { trackLast(.activity); return applyMultiChild(applyDate(activity, customDate), multiChild) }
+        if let milestone = parseMilestone(cleanedInput, raw: input) { trackLast(.milestone); return applyMultiChild(applyDate(milestone, customDate), multiChild) }
 
         return makeEvent(category: .note, notes: input, customDate: customDate)
+    }
+
+    private static func trackLast(_ category: EventCategory) {
+        lastEventCategory = category
+    }
+
+    private static func parseAgain(_ input: String) -> ParsedEvent? {
+        let againPatterns = ["again", "same again", "do it again", "repeat", "same thing", "one more", "another one"]
+        guard againPatterns.contains(where: { input == $0 || input.hasPrefix($0 + " ") || input.hasSuffix(" " + $0) }) else { return nil }
+        guard let lastCategory = lastEventCategory else { return nil }
+
+        switch lastCategory {
+        case .feeding:
+            return makeEvent(category: .feeding, feedingType: .bottle)
+        case .diaper:
+            return makeEvent(category: .diaper, diaperType: .wet)
+        case .sleep:
+            return makeEvent(category: .sleep, isSleepStart: true)
+        default:
+            return makeEvent(category: lastCategory)
+        }
+    }
+
+    private static func resolvePronouns(_ input: String) -> String {
+        var result = input
+        let pronounPatterns = [
+            ("she's ", ""), ("he's ", ""), ("she ", ""), ("he ", ""),
+            ("her ", ""), ("him ", ""),
+        ]
+        for (pronoun, _) in pronounPatterns {
+            if result.hasPrefix(pronoun) || result.contains(" \(pronoun)") {
+                return result
+            }
+        }
+        return result
     }
 
     private static func detectMultiChild(_ input: String) -> Bool {
@@ -533,6 +574,38 @@ struct InputParser {
     private static func extractDate(_ input: String) -> (date: Date, cleanedInput: String)? {
         let calendar = Calendar.current
         let now = Date()
+
+        if let match = input.range(of: #"(\d+)\s*(min|minute|minutes)\s*(ago|before)"#, options: .regularExpression) {
+            let sub = String(input[match])
+            if let numMatch = sub.range(of: #"\d+"#, options: .regularExpression),
+               let mins = Int(sub[numMatch]), mins > 0, mins <= 1440 {
+                let date = now.addingTimeInterval(-Double(mins) * 60)
+                let cleaned = input.replacingOccurrences(of: sub, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+                return (date, cleaned)
+            }
+        }
+
+        if let match = input.range(of: #"(\d+\.?\d*)\s*(h|hr|hrs|hour|hours)\s*(ago|before)"#, options: .regularExpression) {
+            let sub = String(input[match])
+            if let numMatch = sub.range(of: #"\d+\.?\d*"#, options: .regularExpression),
+               let hours = Double(sub[numMatch]), hours > 0, hours <= 48 {
+                let date = now.addingTimeInterval(-hours * 3600)
+                let cleaned = input.replacingOccurrences(of: sub, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+                return (date, cleaned)
+            }
+        }
+
+        let hourAgoPatterns: [(pattern: String, hours: Double)] = [
+            ("an hour ago", 1), ("a half hour ago", 0.5), ("half an hour ago", 0.5),
+            ("an hour before", 1), ("a half hour before", 0.5), ("half an hour before", 0.5),
+        ]
+        for phrase in hourAgoPatterns {
+            if input.contains(phrase.pattern) {
+                let date = now.addingTimeInterval(-phrase.hours * 3600)
+                let cleaned = input.replacingOccurrences(of: phrase.pattern, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+                return (date, cleaned)
+            }
+        }
 
         let relativePhrases: [(pattern: String, daysAgo: Int)] = [
             ("the day before yesterday", 2),
